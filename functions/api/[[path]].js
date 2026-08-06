@@ -217,6 +217,125 @@ async function ownershipClause(env, user) {
 // HIPAA-aligned audit trail (45 CFR §164.312(b)): records who did what to
 // which record, when, and from where. Fire-and-forget so it never blocks
 // a request; failures are swallowed (logging must not break the app).
+/* ------------------------------- billing -------------------------------- */
+// Subscription plans. `clientLimit: 0` means unlimited. Prices live in Stripe
+// and are resolved by lookup key, so pricing can change there without a deploy.
+const PLANS = {
+  starter: { name: 'Starter', clientLimit: 10, monthly: 9, annual: 90 },
+  pro: { name: 'Pro', clientLimit: 40, monthly: 19, annual: 190 },
+  studio: { name: 'Studio', clientLimit: 0, monthly: 39, annual: 390 },
+};
+const TRIAL_DAYS = 14;
+// Statuses that still grant access (Stripe keeps a subscription usable while a
+// payment retries, so 'past_due' is deliberately included).
+const ACTIVE_SUB_STATUSES = new Set(['active', 'trialing', 'past_due']);
+
+// Minimal Stripe REST client — the official SDK is Node-oriented, and all we
+// need is form-encoded POSTs against the API.
+async function stripe(env, path, { method = 'POST', data } = {}) {
+  if (!env.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured.');
+  const body = data ? new URLSearchParams(flattenForStripe(data)).toString() : undefined;
+  const resp = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      ...(body ? { 'content-type': 'application/x-www-form-urlencoded' } : {}),
+    },
+    body,
+  });
+  const out = await resp.json();
+  if (!resp.ok) throw new Error(out?.error?.message || `Stripe error ${resp.status}`);
+  return out;
+}
+
+// Stripe wants bracketed keys for nested data: metadata[plan], line_items[0][price].
+function flattenForStripe(obj, prefix = '', out = {}) {
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue;
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (Array.isArray(v)) v.forEach((item, i) => {
+      if (item !== null && typeof item === 'object') flattenForStripe(item, `${key}[${i}]`, out);
+      else out[`${key}[${i}]`] = String(item);
+    });
+    else if (typeof v === 'object') flattenForStripe(v, key, out);
+    else out[key] = String(v);
+  }
+  return out;
+}
+
+// Verifies the Stripe-Signature header (HMAC-SHA256 over "timestamp.payload").
+// Without this, anyone could POST fake "subscription active" events to us.
+async function verifyStripeSignature(rawBody, header, secret) {
+  if (!header || !secret) return false;
+  const parts = Object.fromEntries(header.split(',').map((p) => p.split('=').map((s) => s.trim())));
+  const timestamp = parts.t;
+  const signature = parts.v1;
+  if (!timestamp || !signature) return false;
+  // Reject events older than 5 minutes to blunt replay attacks.
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, enc.encode(`${timestamp}.${rawBody}`));
+  const expected = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  // Constant-time compare.
+  if (expected.length !== signature.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  return diff === 0;
+}
+
+// Reads subscription state off a user record and decides what they may do.
+function subscriptionState(user) {
+  const b = user?.billing || {};
+
+  // Beta-key trainers are comped for life: full access, unlimited clients, and
+  // they are never shown a paywall or asked for a card.
+  if (user?.beta_key_used) {
+    return {
+      status: 'comped', plan: 'studio', planName: 'Founding Trainer',
+      clientLimit: 0, active: true, onTrial: false, comped: true,
+      trialEndsAt: null, currentPeriodEnd: null, cancelAtPeriodEnd: false,
+      customerId: b.customer_id || null,
+    };
+  }
+
+  const status = b.status || 'none';
+  // Trainers who signed up before billing existed have no stored trial date.
+  // Derive one from their account age so nobody is locked out by an upgrade.
+  const trialEndsRaw = b.trial_ends_at
+    || (user?.created_date ? new Date(new Date(user.created_date).getTime() + TRIAL_DAYS * 86400000).toISOString() : null);
+  const trialEndsAt = trialEndsRaw ? new Date(trialEndsRaw).getTime() : null;
+  const onTrial = status === 'none' && trialEndsAt != null && trialEndsAt > Date.now();
+  const active = ACTIVE_SUB_STATUSES.has(status) || onTrial;
+  const plan = b.plan && PLANS[b.plan] ? b.plan : null;
+  return {
+    status: onTrial ? 'trialing' : status,
+    plan,
+    planName: plan ? PLANS[plan].name : onTrial ? 'Free trial' : null,
+    clientLimit: plan ? PLANS[plan].clientLimit : onTrial ? PLANS.starter.clientLimit : 0,
+    active,
+    onTrial,
+    trialEndsAt: trialEndsRaw || null,
+    currentPeriodEnd: b.current_period_end || null,
+    cancelAtPeriodEnd: !!b.cancel_at_period_end,
+    comped: false,
+    customerId: b.customer_id || null,
+  };
+}
+
+// Persists billing fields onto the user's JSON blob.
+async function saveBilling(env, userId, patch) {
+  const row = await env.DB.prepare('SELECT data FROM users WHERE id = ?').bind(userId).first();
+  if (!row) return false;
+  let data = {};
+  try { data = JSON.parse(row.data || '{}'); } catch { /* corrupt blob — start fresh */ }
+  data.billing = { ...(data.billing || {}), ...patch };
+  await env.DB.prepare('UPDATE users SET data = ?, updated_date = ? WHERE id = ?')
+    .bind(JSON.stringify(data), nowISO(), userId).run();
+  return true;
+}
+
 async function audit(env, { actor, action, target, targetId, detail, request }) {
   try {
     const ip = request?.headers?.get('cf-connecting-ip') || '';
@@ -1218,6 +1337,14 @@ export async function onRequest(context) {
         const now = nowISO();
         const role = 'user'; // admins come exclusively from the ADMIN_EMAILS allowlist
         const userData = claimedKeyRow ? { beta_key_used: true, beta_key_verified: true, beta_key: JSON.parse(claimedKeyRow.data).key } : {};
+        // Trainers get a free trial from the moment they sign up; beta-key
+        // trainers are comped indefinitely and never hit the paywall.
+        if (user_type === 'trainer') {
+          userData.billing = {
+            status: 'none',
+            trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+          };
+        }
         await env.DB.prepare(
           'INSERT INTO users (id,email,password_hash,full_name,role,user_type,data,created_date,updated_date) VALUES (?,?,?,?,?,?,?,?,?)'
         ).bind(id, email, await hashPassword(body.password), body.full_name || '', role, user_type, JSON.stringify(userData), now, now).run();
@@ -1413,6 +1540,37 @@ export async function onRequest(context) {
         if (method === 'POST') {
           const body = await request.json();
           const list = Array.isArray(body) ? body : [body];
+
+          // Enforce the plan's client cap. Admins and comped (beta-key)
+          // trainers are exempt; a limit of 0 on an ACTIVE plan means unlimited.
+          if (type === 'Client' && user.role !== 'admin') {
+            const state = subscriptionState(user);
+
+            // No active plan and no running trial: existing clients stay
+            // reachable, but no new ones until they subscribe.
+            if (!state.active) {
+              return err(
+                'Your free trial has ended. Choose a plan in Settings → Billing to add more clients — your existing clients are unaffected.',
+                402,
+                { code: 'subscription_required' }
+              );
+            }
+
+            if (state.clientLimit > 0) {
+              const row = await env.DB.prepare(
+                `SELECT COUNT(*) AS n FROM entities WHERE entity_type='Client' AND created_by = ? AND COALESCE(json_extract(data,'$.status'),'active') != 'archived'`
+              ).bind(user.email).first();
+              const current = row?.n || 0;
+              if (current + list.length > state.clientLimit) {
+                return err(
+                  `Your ${state.planName} plan covers ${state.clientLimit} active clients and you have ${current}. Upgrade in Settings → Billing to add more.`,
+                  402,
+                  { code: 'client_limit_reached', limit: state.clientLimit, current }
+                );
+              }
+            }
+          }
+
           const created = [];
           for (const item of list) {
             const eid = uid();
@@ -1493,6 +1651,120 @@ export async function onRequest(context) {
 
     /* ---- functions ---- */
     /* ---- audit log (admin only) ---- */
+    /* ---- billing (Stripe) ---- */
+    if (segs[0] === 'stripe') {
+      // Webhook first: it is unauthenticated by design and verified by signature.
+      if (segs[1] === 'webhook' && method === 'POST') {
+        const raw = await request.text();
+        const ok = await verifyStripeSignature(raw, request.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET);
+        if (!ok) return err('Invalid signature.', 400);
+
+        let event;
+        try { event = JSON.parse(raw); } catch { return err('Bad payload.', 400); }
+        const obj = event?.data?.object || {};
+
+        // Find the user this event belongs to: metadata first, then customer id.
+        const findUser = async () => {
+          const uid = obj.metadata?.apex_user_id || obj.subscription_details?.metadata?.apex_user_id;
+          if (uid) return env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+          const customer = typeof obj.customer === 'string' ? obj.customer : obj.customer?.id;
+          if (!customer) return null;
+          return env.DB.prepare(
+            `SELECT * FROM users WHERE json_extract(data,'$.billing.customer_id') = ? LIMIT 1`
+          ).bind(customer).first();
+        };
+
+        const row = await findUser();
+        if (row) {
+          const iso = (unix) => (unix ? new Date(unix * 1000).toISOString() : null);
+          if (event.type === 'checkout.session.completed') {
+            await saveBilling(env, row.id, {
+              customer_id: typeof obj.customer === 'string' ? obj.customer : obj.customer?.id,
+              subscription_id: typeof obj.subscription === 'string' ? obj.subscription : obj.subscription?.id,
+              plan: obj.metadata?.apex_plan || null,
+              status: 'active',
+            });
+          } else if (event.type.startsWith('customer.subscription.')) {
+            const deleted = event.type.endsWith('deleted');
+            await saveBilling(env, row.id, {
+              customer_id: typeof obj.customer === 'string' ? obj.customer : obj.customer?.id,
+              subscription_id: obj.id,
+              plan: deleted ? null : (obj.metadata?.apex_plan || obj.items?.data?.[0]?.price?.metadata?.plan || null),
+              status: deleted ? 'canceled' : obj.status,
+              current_period_end: iso(obj.current_period_end),
+              cancel_at_period_end: !!obj.cancel_at_period_end,
+            });
+          } else if (event.type === 'invoice.payment_failed') {
+            await saveBilling(env, row.id, { status: 'past_due' });
+          }
+          await audit(env, { actor: row.email, action: 'billing_' + event.type.replace(/\./g, '_'), target: 'Subscription', targetId: obj.id || '', request });
+        }
+        return json({ received: true });
+      }
+
+      const user = await currentUser(request, env);
+      if (!user) return err('Authentication required.', 401);
+
+      // Current plan + limits, used by the billing screen and feature gates.
+      if (segs[1] === 'status' && method === 'GET') {
+        const state = subscriptionState(user);
+        const { results } = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM entities WHERE entity_type='Client' AND created_by = ? AND COALESCE(json_extract(data,'$.status'),'active') != 'archived'`
+        ).bind(user.email).all();
+        return json({
+          ...state,
+          clientCount: results?.[0]?.n || 0,
+          configured: !!env.STRIPE_SECRET_KEY,
+          plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
+          trialDays: TRIAL_DAYS,
+        });
+      }
+
+      // Hosted Checkout — card details never touch our servers.
+      if (segs[1] === 'checkout' && method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const plan = String(body.plan || '');
+        const interval = body.interval === 'annual' ? 'annual' : 'monthly';
+        if (!PLANS[plan]) return err('Unknown plan.', 400);
+
+        const lookup = `apex_${plan}_${interval}`;
+        const prices = await stripe(env, `prices?lookup_keys[]=${encodeURIComponent(lookup)}&active=true&limit=1`, { method: 'GET' });
+        const price = prices?.data?.[0];
+        if (!price) return err('That plan is not available right now.', 400);
+
+        const state = subscriptionState(user);
+        const origin = new URL(request.url).origin;
+        const session = await stripe(env, 'checkout/sessions', {
+          data: {
+            mode: 'subscription',
+            line_items: [{ price: price.id, quantity: 1 }],
+            success_url: `${origin}/Settings?billing=success`,
+            cancel_url: `${origin}/Settings?billing=cancelled`,
+            client_reference_id: user.id,
+            ...(state.customerId ? { customer: state.customerId } : { customer_email: user.email }),
+            allow_promotion_codes: true,
+            metadata: { apex_user_id: user.id, apex_plan: plan },
+            subscription_data: { metadata: { apex_user_id: user.id, apex_plan: plan } },
+          },
+        });
+        await audit(env, { actor: user.email, action: 'billing_checkout_started', target: 'Subscription', detail: `${plan}/${interval}`, request });
+        return json({ url: session.url });
+      }
+
+      // Stripe-hosted portal for changing plan, updating card, or cancelling.
+      if (segs[1] === 'portal' && method === 'POST') {
+        const customerId = user?.billing?.customer_id;
+        if (!customerId) return err('No subscription to manage yet.', 400);
+        const origin = new URL(request.url).origin;
+        const session = await stripe(env, 'billing_portal/sessions', {
+          data: { customer: customerId, return_url: `${origin}/Settings` },
+        });
+        return json({ url: session.url });
+      }
+
+      return err('Unknown billing route.', 404);
+    }
+
     if (segs[0] === 'audit') {
       const user = await currentUser(request, env);
       if (!user) return err('Authentication required.', 401);

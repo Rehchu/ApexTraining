@@ -48,10 +48,13 @@ import { useUnitSystem } from "@/components/hooks/useUnitSystem";
 import { useTheme } from "@/components/hooks/useTheme";
 import ClientPortalSettings from "@/components/settings/ClientPortalSettings";
 import ComplianceSettings from "@/components/settings/ComplianceSettings";
+import BillingSettings from "@/components/settings/BillingSettings";
 
 export default function Settings() {
   const [user, setUser] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  // Billing is a trainer concern; a trainer who also has a client record still needs it.
+  const isTrainer = user?.user_type === "trainer" || user?.role === "admin";
   const { system, setUnitSystem } = useUnitSystem();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
@@ -346,6 +349,11 @@ export default function Settings() {
             <TabsTrigger value="pwa" className="flex-1 sm:flex-none text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap">
               <MonitorSmartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> App
             </TabsTrigger>
+            {isTrainer && (
+              <TabsTrigger value="billing" className="flex-1 sm:flex-none text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap">
+                <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Billing
+              </TabsTrigger>
+            )}
             {!isClient && (
               <TabsTrigger value="compliance" className="flex-1 sm:flex-none text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap">
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Compliance
@@ -738,6 +746,12 @@ export default function Settings() {
 
           <InstallGuide />
         </TabsContent>
+
+        {isTrainer && (
+          <TabsContent value="billing" className="space-y-6">
+            <BillingSettings />
+          </TabsContent>
+        )}
 
         {!isClient && (
           <TabsContent value="compliance" className="space-y-6">
