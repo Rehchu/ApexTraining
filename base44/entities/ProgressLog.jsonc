@@ -1,0 +1,137 @@
+{
+  "name": "ProgressLog",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "Client this log belongs to"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of measurement"
+    },
+    "weight_kg": {
+      "type": "number",
+      "description": "Body weight in kg"
+    },
+    "body_fat_percentage": {
+      "type": "number",
+      "description": "Body fat percentage"
+    },
+    "measurements": {
+      "type": "object",
+      "description": "Body measurements in cm",
+      "properties": {
+        "chest": {
+          "type": "number"
+        },
+        "waist": {
+          "type": "number"
+        },
+        "hips": {
+          "type": "number"
+        },
+        "biceps_left": {
+          "type": "number"
+        },
+        "biceps_right": {
+          "type": "number"
+        },
+        "thigh_left": {
+          "type": "number"
+        },
+        "thigh_right": {
+          "type": "number"
+        }
+      }
+    },
+    "performance_metrics": {
+      "type": "object",
+      "description": "Performance tracking metrics",
+      "properties": {
+        "bench_press_kg": {
+          "type": "number"
+        },
+        "squat_kg": {
+          "type": "number"
+        },
+        "deadlift_kg": {
+          "type": "number"
+        },
+        "max_pullups": {
+          "type": "number"
+        },
+        "max_pushups": {
+          "type": "number"
+        },
+        "plank_seconds": {
+          "type": "number"
+        }
+      }
+    },
+    "biometrics": {
+      "type": "object",
+      "description": "Advanced next-gen biometrics",
+      "properties": {
+        "hrv_ms": {
+          "type": "number",
+          "description": "Heart Rate Variability in ms"
+        },
+        "fasting_glucose_mgdl": {
+          "type": "number",
+          "description": "Fasting blood glucose in mg/dL"
+        },
+        "sleep_quality_score": {
+          "type": "number",
+          "description": "1-100 sleep score"
+        },
+        "cns_readiness": {
+          "type": "number",
+          "description": "1-100 Central Nervous System readiness"
+        },
+        "injury_risk_flag": {
+          "type": "boolean",
+          "description": "AI flagged high injury risk"
+        },
+        "core_temperature": {
+          "type": "number",
+          "description": "Core body temperature in Celsius"
+        },
+        "respiratory_rate": {
+          "type": "number",
+          "description": "Breaths per minute"
+        }
+      }
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Progress photo URLs"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Trainer notes"
+    },
+    "client_feedback": {
+      "type": "string",
+      "description": "Client feedback and comments"
+    },
+    "trainer_id": {
+      "type": "string",
+      "description": "Trainer who logged this"
+    }
+  },
+  "required": [
+    "client_id",
+    "date"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

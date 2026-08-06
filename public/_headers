@@ -1,0 +1,19 @@
+/*
+  # Force HTTPS for two years, including subdomains (HIPAA §164.312(e)(1)
+  # transmission security). Cloudflare terminates TLS; this stops downgrade.
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  # The app is never meant to be framed — blocks clickjacking of PHI screens.
+  X-Frame-Options: DENY
+  # Stop browsers guessing content types (XSS via mis-typed uploads).
+  X-Content-Type-Options: nosniff
+  # Don't leak app URLs (which can contain record ids) to third-party sites.
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Deny hardware APIs the app doesn't use; camera/mic stay on for video calls.
+  Permissions-Policy: geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), camera=(self), microphone=(self)
+  # Keep PHI pages out of shared caches.
+  Cache-Control: no-store, max-age=0
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://meet.jit.si; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://meet.jit.si wss://meet.jit.si; frame-src 'self' https://meet.jit.si; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+# Immutable, content-hashed build assets can be cached hard.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

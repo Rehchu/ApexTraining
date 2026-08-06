@@ -1,0 +1,42 @@
+{
+  // Cloudflare Pages configuration for ApexTraining.
+  // Deploy:  npm run build && npx wrangler pages deploy
+  // (first time: npx wrangler login)
+  "name": "apextraining",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "./dist",
+
+  // D1 database binding (env.DB). Create it once with:
+  //   npx wrangler d1 create apextraining
+  // then paste the returned database_id below.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "apextraining",
+      "database_id": "a49d1b5b-a87c-4bf8-9a41-f45579720918"
+    }
+  ],
+
+  // R2 bucket for file uploads (env.FILES). Create it once with:
+  //   npx wrangler r2 bucket create apextraining-files
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "apextraining-files"
+    }
+  ],
+
+  // Workers AI binding (env.AI) — built-in Cloudflare AI, no API key required.
+  // Free tier: 10,000 neurons/day. Used by InvokeLLM when LLM_API_KEY is not set.
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Non-secret vars. Set AUTH_SECRET and LLM_API_KEY as encrypted secrets in the
+  // Pages dashboard (Settings → Environment variables) — do NOT commit them here.
+  "vars": {
+    "LLM_MODEL": "claude-sonnet-5",
+    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  }
+}

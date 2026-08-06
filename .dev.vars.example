@@ -1,0 +1,31 @@
+# Copy to `.dev.vars` for local development (`npx wrangler pages dev dist`).
+# In production these are set as encrypted secrets on Cloudflare Pages:
+#   npx wrangler pages secret put <NAME> --project-name=apextraining
+# NEVER commit the real .dev.vars — it is gitignored.
+
+# Signs the session JWTs. Use a long random string (e.g. `openssl rand -base64 48`).
+AUTH_SECRET=replace-with-a-long-random-string
+
+# Comma-separated list of admin accounts. These emails get the admin role on
+# every request; everyone else is forced back to a normal user.
+ADMIN_EMAILS=you@example.com,teammate@example.com
+
+# Transactional email (client invitations, session reminders) — https://resend.com
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+EMAIL_FROM=ApexCoach <onboarding@resend.dev>
+
+# Food/nutrition lookup — https://fdc.nal.usda.gov/api-key-signup.html
+USDA_API_KEY=your-usda-key
+
+# Exercise library (ExerciseDB via RapidAPI)
+EXERCISEDB_API_KEY=your-rapidapi-key
+
+# Web push (generate a pair with `npx web-push generate-vapid-keys`)
+VAPID_PUBLIC_KEY=your-public-key
+VAPID_PRIVATE_KEY=your-private-key
+VAPID_SUBJECT=mailto:you@example.com
+
+# Optional: use Anthropic instead of the built-in Cloudflare Workers AI.
+# When unset, the app falls back to Workers AI (no key required).
+# LLM_API_KEY=sk-ant-xxxxxxxx
+# LLM_MODEL=claude-sonnet-5

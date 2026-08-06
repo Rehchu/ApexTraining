@@ -1,108 +1,40 @@
-# ==================== Secrets & Environment ====================
+#env
 .env
 .env.*
-*.key
-*.pem
-secrets-generated.json
-wrangler.toml.example
 
-# ==================== Node ====================
-**/node_modules/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# ==================== Python ====================
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-.venv/
-venv/
-ENV/
-env/
+node_modules
+dist
+dist-ssr
+*.local
 
-# ==================== IDEs ====================
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Cloudflare local dev — .dev.vars holds real API keys, never commit it
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler
+
+# Claude Code local settings — can capture command history containing API keys
+.claude/settings.local.json
+.claude/**/*.local.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# ==================== Build Artifacts ====================
-dist/
-dist-new/
-build/
-out/
-*.log
-*.sqlite
-*.db
-
-# ==================== Desktop App ====================
-desktop-app/dist/
-desktop-app/dist-new/
-desktop-app/build/
-desktop-app/node_modules/
-desktop-app/.cache/
-
-# ==================== Installer ====================
-installer/output/
-installer/build/FitTrack Pro.bat
-installer/build/backend/
-installer/build/desktop-app/
-installer/build/python/
-
-# ==================== Uploads ====================
-uploads/
-backend/uploads/
-web-client/uploads/
-
-# ==================== Testing ====================
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-tests/__pycache__/
-
-# ==================== Cloudflare ====================
-# Keep wrangler.toml but exclude secrets
-# secrets-generated.json excluded above
-.wrangler/
-wrangler.toml.local
-
-# ==================== OS ====================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-
-# ==================== Misc ====================
-*.bak
-*.tmp
-*.temp
-.cache/
+.env

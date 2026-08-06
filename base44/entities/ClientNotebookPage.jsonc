@@ -1,0 +1,54 @@
+{
+  "name": "ClientNotebookPage",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "Client this page belongs to"
+    },
+    "lead_id": {
+      "type": "string",
+      "description": "Lead this page belongs to (before conversion)"
+    },
+    "trainer_id": {
+      "type": "string",
+      "description": "Trainer who owns this page"
+    },
+    "section_name": {
+      "type": "string",
+      "description": "Folder or section name"
+    },
+    "title": {
+      "type": "string",
+      "description": "Page title"
+    },
+    "text_content": {
+      "type": "string",
+      "description": "Rich text content (HTML or JSON)"
+    },
+    "draw_content": {
+      "type": "string",
+      "description": "Excalidraw JSON data"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "text",
+        "draw",
+        "hybrid"
+      ],
+      "default": "text",
+      "description": "Current view mode"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "title"
+  ]
+}

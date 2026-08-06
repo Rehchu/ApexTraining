@@ -1,0 +1,364 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   ApexCoach design system — clean, white-card, airy; emerald accent.
+   Light theme is the default; dark theme available via `.dark` on <html>.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Light theme — clean, white-card, airy (Trainerize/Everfit inspired) */
+    --background: 210 25% 97%;
+    --foreground: 222 40% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 40% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 40% 12%;
+    --primary: 160 84% 33%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 24% 94%;
+    --secondary-foreground: 222 40% 12%;
+    --muted: 210 24% 94%;
+    --muted-foreground: 215 15% 45%;
+    --accent: 210 24% 92%;
+    --accent-foreground: 222 40% 12%;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
+    --ring: 160 84% 33%;
+    --chart-1: 160 84% 33%;
+    --chart-2: 199 89% 42%;
+    --chart-3: 262 70% 56%;
+    --chart-4: 32 95% 48%;
+    --chart-5: 340 75% 50%;
+    --radius: 1rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 15% 40%;
+    --sidebar-primary: 160 84% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 60% 95%;
+    --sidebar-accent-foreground: 160 84% 25%;
+    --sidebar-border: 214 22% 90%;
+    --sidebar-ring: 160 84% 33%;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: 220 20% 5%;
+    --foreground: 220 15% 96%;
+    --card: 219 18% 8.5%;
+    --card-foreground: 220 15% 96%;
+    --popover: 219 18% 8.5%;
+    --popover-foreground: 220 15% 96%;
+    --primary: 152 90% 44%;
+    --primary-foreground: 160 100% 4%;
+    --secondary: 219 15% 14%;
+    --secondary-foreground: 220 15% 96%;
+    --muted: 219 15% 14%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 219 15% 16%;
+    --accent-foreground: 220 15% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 14% 16%;
+    --input: 218 14% 16%;
+    --ring: 152 90% 44%;
+    --sidebar-background: 220 20% 4%;
+    --sidebar-foreground: 218 11% 72%;
+    --sidebar-primary: 152 90% 44%;
+    --sidebar-primary-foreground: 160 100% 4%;
+    --sidebar-accent: 219 15% 12%;
+    --sidebar-accent-foreground: 220 15% 96%;
+    --sidebar-border: 218 14% 12%;
+    --sidebar-ring: 152 90% 44%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  button, a, [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ==========================================================================
+   Cards — flat, bordered, calm. (Legacy class names kept for compatibility.)
+   ========================================================================== */
+
+@layer components {
+  .glass-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .glass-card:hover {
+    border-color: hsl(215 20% 75%);
+    box-shadow: 0 6px 20px rgba(16, 24, 40, 0.08);
+  }
+
+  .glass-card-green {
+    background: hsl(var(--card));
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 20px;
+    transition: border-color 0.2s ease;
+  }
+  .glass-card-green:hover { border-color: rgba(16, 185, 129, 0.45); }
+
+  .glass-card-gold {
+    background: hsl(var(--card));
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 20px;
+    transition: border-color 0.2s ease;
+  }
+  .glass-card-gold:hover { border-color: rgba(245, 158, 11, 0.45); }
+
+  .glass-card-red {
+    background: hsl(var(--card));
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 20px;
+    transition: border-color 0.2s ease;
+  }
+  .glass-card-red:hover { border-color: rgba(239, 68, 68, 0.45); }
+
+  .glass-card-purple {
+    background: hsl(var(--card));
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 20px;
+    transition: border-color 0.2s ease;
+  }
+  .glass-card-purple:hover { border-color: rgba(168, 85, 247, 0.45); }
+
+  /* Text gradients (used sparingly on headings) */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .text-gradient-green {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .text-gradient-spectrum {
+    background: linear-gradient(90deg, #10b981, #38bdf8, #a855f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Bottom navigation (mobile) */
+  .apex-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+    background: hsl(var(--sidebar-background) / 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  /* Frosted input — legacy class used across forms */
+  .input-frosted {
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--input));
+    border-radius: 10px;
+    color: hsl(var(--foreground));
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .input-frosted::placeholder { color: hsl(var(--muted-foreground)); }
+  .input-frosted:focus { border-color: hsl(var(--ring)); }
+
+  /* Progress ring container */
+  .apex-ring {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Legal / long-form document styling (Terms, Privacy, Data Policy) */
+  .legal-content {
+    color: hsl(var(--foreground));
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .legal-content h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid hsl(var(--border));
+    letter-spacing: -0.01em;
+  }
+  .legal-content h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+    color: hsl(var(--foreground));
+  }
+  .legal-content p { margin: 0.75rem 0; color: hsl(var(--muted-foreground)); }
+  .legal-content ul, .legal-content ol { margin: 0.75rem 0 0.75rem 1.25rem; }
+  .legal-content li { margin: 0.35rem 0; color: hsl(var(--muted-foreground)); list-style: disc; }
+  .legal-content ol li { list-style: decimal; }
+  .legal-content strong { color: hsl(var(--foreground)); font-weight: 600; }
+  .legal-content a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 2px; }
+  .legal-content blockquote {
+    border-left: 3px solid hsl(var(--primary));
+    padding: 0.25rem 0 0.25rem 1rem;
+    margin: 1rem 0;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--secondary) / 0.5);
+    border-radius: 0 8px 8px 0;
+  }
+  .legal-content hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 1.75rem 0; }
+  .legal-content code {
+    background: hsl(var(--secondary));
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+}
+
+@layer utilities {
+  .pulse-green { animation: apex-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+@keyframes apex-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Scrollbars (desktop) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(215 15% 78%);
+  border-radius: 8px;
+  border: 2px solid hsl(var(--background));
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(215 15% 65%); }
+
+/* ==========================================================================
+   Final modernization polish — global refinements (2026).
+   Depth, tactile controls, accessible focus, smooth motion. CSS-only.
+   ========================================================================== */
+
+/* Text selection uses the brand accent */
+::selection {
+  background: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
+}
+
+@layer base {
+  /* Accessible, consistent keyboard focus everywhere */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55);
+    border-radius: 8px;
+  }
+
+  /* Tactile press on all interactive controls */
+  button:not(:disabled),
+  a[role='button'],
+  [role='button']:not([aria-disabled='true']) {
+    transition: transform 0.12s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
+  }
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active {
+    transform: translateY(0.5px) scale(0.985);
+  }
+
+  /* Smoother image + media rendering */
+  img { image-rendering: auto; }
+}
+
+@layer components {
+  /* Softer, layered depth for the primary card treatment */
+  .glass-card {
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  }
+  .glass-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.07), 0 10px 28px rgba(16, 24, 40, 0.06);
+  }
+}
+
+@layer utilities {
+  /* Gentle entrance for page content and lists */
+  .apex-enter { animation: apex-enter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .apex-enter-sm { animation: apex-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  /* Shimmer for skeleton/loading states */
+  .apex-shimmer {
+    background: linear-gradient(100deg, hsl(var(--secondary)) 30%, hsl(var(--accent)) 50%, hsl(var(--secondary)) 70%);
+    background-size: 200% 100%;
+    animation: apex-shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes apex-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes apex-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Smooth in-page anchor scrolling */
+html { scroll-behavior: smooth; }

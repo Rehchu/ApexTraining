@@ -1,0 +1,18 @@
+{
+  "name": "ApexCoach",
+  "short_name": "ApexCoach",
+  "description": "Training, nutrition, and habit coaching — for trainers, clients, and solo athletes.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F7FA",
+  "theme_color": "#F5F7FA",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,232 @@
+{
+  "name": "Client",
+  "type": "object",
+  "properties": {
+    "custom_id": {
+      "type": "string",
+      "description": "Unique Client ID starting with CLIEN"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User ID of the client (for messaging)"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Client's full name"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Client's email address"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Client's phone number"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Profile photo URL"
+    },
+    "age": {
+      "type": "number",
+      "description": "Client's age in years"
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date",
+      "description": "Client's date of birth"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female",
+        "other"
+      ],
+      "description": "Client's gender"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "paused"
+      ],
+      "default": "active",
+      "description": "Membership status"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Client tags/labels",
+      "default": []
+    },
+    "membership_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date of membership"
+    },
+    "membership_end": {
+      "type": "string",
+      "format": "date",
+      "description": "End date of membership"
+    },
+    "goals": {
+      "type": "string",
+      "description": "Client's fitness goals"
+    },
+    "medical_notes": {
+      "type": "string",
+      "description": "Any medical conditions or notes"
+    },
+    "emergency_contact": {
+      "type": "string",
+      "description": "Emergency contact name and phone"
+    },
+    "trainer_id": {
+      "type": "string",
+      "description": "Assigned trainer's user ID"
+    },
+    "height_cm": {
+      "type": "number",
+      "description": "Height in centimeters"
+    },
+    "weight_kg": {
+      "type": "number",
+      "description": "Current weight in kilograms"
+    },
+    "body_fat_percentage": {
+      "type": "number",
+      "description": "Body fat percentage"
+    },
+    "fitness_level": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced"
+      ],
+      "description": "Current fitness level"
+    },
+    "activity_level": {
+      "type": "string",
+      "enum": [
+        "sedentary",
+        "lightly_active",
+        "moderately_active",
+        "very_active",
+        "extremely_active"
+      ],
+      "description": "Daily activity level"
+    },
+    "dietary_preference": {
+      "type": "string",
+      "enum": [
+        "none",
+        "vegan",
+        "vegetarian",
+        "pescatarian",
+        "keto",
+        "paleo",
+        "low_carb",
+        "gluten_free"
+      ],
+      "default": "none"
+    },
+    "equipment_access": {
+      "type": "string",
+      "enum": [
+        "full_gym",
+        "home_gym",
+        "dumbbells_only",
+        "bodyweight"
+      ],
+      "default": "full_gym"
+    },
+    "sleep_hours": {
+      "type": "number",
+      "description": "Average sleep hours per night"
+    },
+    "stress_level": {
+      "type": "number",
+      "description": "Stress level: 2=Low, 5=Moderate, 8=High"
+    },
+    "resting_heart_rate": {
+      "type": "number",
+      "description": "Resting Heart Rate (bpm)"
+    },
+    "blood_pressure": {
+      "type": "string",
+      "description": "Blood Pressure (e.g. 120/80)"
+    },
+    "injuries": {
+      "type": "string",
+      "description": "Current or past injuries to be aware of"
+    },
+    "measurements": {
+      "type": "object",
+      "description": "Body measurements in cm",
+      "properties": {
+        "chest": {
+          "type": "number"
+        },
+        "waist": {
+          "type": "number"
+        },
+        "hips": {
+          "type": "number"
+        },
+        "biceps_left": {
+          "type": "number"
+        },
+        "biceps_right": {
+          "type": "number"
+        },
+        "thigh_left": {
+          "type": "number"
+        },
+        "thigh_right": {
+          "type": "number"
+        }
+      }
+    },
+    "subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription ID"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "unpaid",
+        "cancelled"
+      ],
+      "description": "Current subscription status"
+    },
+    "subscription_current_period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Current subscription period end date"
+    },
+    "adherence_score": {
+      "type": "number",
+      "description": "AI-calculated compliance/adherence score (0-100)",
+      "default": 100
+    }
+  },
+  "required": [
+    "full_name",
+    "email"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "name": "WorkoutPlan",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the workout plan"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the workout plan"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "Client this plan is assigned to"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced"
+      ],
+      "default": "intermediate"
+    },
+    "duration_weeks": {
+      "type": "number",
+      "description": "Duration of the plan in weeks"
+    },
+    "days_per_week": {
+      "type": "number",
+      "description": "Training days per week"
+    },
+    "mesocycle_phase": {
+      "type": "string",
+      "enum": [
+        "hypertrophy",
+        "strength",
+        "peaking",
+        "deload",
+        "general"
+      ],
+      "default": "general",
+      "description": "Current training phase"
+    },
+    "block_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Block number in macrocycle"
+    },
+    "dynamic_adaptation": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically adapt volume/exercises based on daily readiness scores"
+    },
+    "exercises": {
+      "type": "array",
+      "description": "List of exercises in the plan",
+      "items": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sets": {
+            "type": "number"
+          },
+          "reps": {
+            "type": "string"
+          },
+          "target_rir": {
+            "type": "number",
+            "description": "Target Reps in Reserve (RIR)"
+          },
+          "rest_seconds": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "completed",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "trainer_id": {
+      "type": "string",
+      "description": "Trainer who created this plan"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

@@ -1,0 +1,2 @@
+# SPA fallback for Cloudflare Pages — all non-asset routes serve the app shell
+/* /index.html 200

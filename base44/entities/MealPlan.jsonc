@@ -1,0 +1,129 @@
+{
+  "name": "MealPlan",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the meal plan"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the meal plan"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "Client this plan is assigned to"
+    },
+    "duration_days": {
+      "type": "number",
+      "description": "Duration of the plan in days"
+    },
+    "calories_target": {
+      "type": "number",
+      "description": "Daily calorie target"
+    },
+    "protein_target_g": {
+      "type": "number",
+      "description": "Daily protein target in grams"
+    },
+    "carbs_target_g": {
+      "type": "number",
+      "description": "Daily carbs target in grams"
+    },
+    "fat_target_g": {
+      "type": "number",
+      "description": "Daily fat target in grams"
+    },
+    "circadian_timing": {
+      "type": "boolean",
+      "default": true,
+      "description": "Hyper-personalized nutritional timing based on circadian rhythm and training"
+    },
+    "meals": {
+      "type": "array",
+      "description": "List of meals in the plan",
+      "items": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "number"
+          },
+          "meal_type": {
+            "type": "string",
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "timing_window": {
+            "type": "string",
+            "description": "Optimal eating window (e.g. 08:00 - 09:30)"
+          },
+          "foods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fdc_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "calories": {
+                  "type": "number"
+                },
+                "protein": {
+                  "type": "number"
+                },
+                "carbs": {
+                  "type": "number"
+                },
+                "fat": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "instructions": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "completed",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "trainer_id": {
+      "type": "string",
+      "description": "Trainer who created this plan"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

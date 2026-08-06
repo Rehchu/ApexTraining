@@ -1,337 +1,216 @@
-# FitTrack Pro v1.2 - Complete Personal Trainer Platform
+# ApexCoach — Personal Training Platform
 
 > **"Dedicated to MaxWCooper – No Tiers. No Limits. No Catch."**
 
-A comprehensive personal training platform with desktop app, web client, local backend, workout tracking, PDF generation, email system, and optional cloud integration.
+A complete coaching platform for personal trainers, their clients, and solo athletes —
+training, nutrition, progress, habits, documents, and messaging in one place, with AI
+assistance built in. Runs entirely on Cloudflare's edge.
 
-## 🎉 What's New in v1.2
+**Live:** [apextraining.dev](https://apextraining.dev)
 
-### ✅ Workout Tracking System
-- **Exercise Library** - Master exercise database with metadata (category, equipment, difficulty, muscles, instructions, videos)
-- **Workout Sessions** - Create detailed workout programs with exercises, sets, reps, weights, and RPE
-- **Progress Tracking** - Track client progress per exercise with historical data and improvement calculations
-- **Statistics** - Comprehensive client stats including volume, streaks, favorite exercises, and workout frequency
-- **20+ REST API Endpoints** - Complete CRUD operations for exercises, workouts, setgroups, and sets
+---
 
-### ✅ PDF Generation System
-- **Workout Logs** - Professional PDFs with exercise tables, volume calculations, and workout summaries
-- **Meal Plans** - Multi-day meal plans with nutrition breakdowns and daily totals
-- **Progress Reports** - Comprehensive reports with measurements, achievements, quests, and milestones
-- **Health Statistics** - Aggregated health data with nutrition, workout, and body composition insights
-- **Custom Styling** - Branded PDFs with customizable colors, fonts, and layouts
+## What it is
 
-### ✅ Email System
-- **SMTP Integration** - Send emails via Gmail, SendGrid, Mailgun, or any SMTP provider
-- **HTML Templates** - Professional, responsive email templates with brand customization
-- **PDF Attachments** - Automatically attach generated PDFs to emails
-- **4 Email Types** - Workout plans, meal plans, progress reports, and health statistics
+ApexCoach is three portals sharing one backend:
 
-## 🚀 Quick Start
+| Portal | Who it's for | What they get |
+|---|---|---|
+| **Trainer** | Coaches running a business | Clients, programming, scheduling, CRM, contracts, resources, business tracking, AI assistant |
+| **Client** | People coached by a trainer | Assigned workouts and meals, progress, habits, journal, documents, messaging |
+| **Solo** | Independent athletes | The client experience, self-directed — no trainer required |
 
-### Backend Setup
+Two application admins oversee the platform and can preview either portal without
+leaving their own account.
 
-```bash
-cd backend
+---
 
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # macOS/Linux
+## Feature overview
 
-# Install dependencies
-pip install -r requirements.txt
+### Training
+- **Workout builder** — day-by-day programming with sets, reps, RIR, rest, and notes
+- **Exercise library** — searchable, with demo images and video (ExerciseDB)
+- **Templates** — save any plan and reuse it for future clients
+- **Client-added workouts** — coached clients can log extra sessions; the trainer sees them
+- **AI form check** — upload a lift video/photo for technique feedback
+- **Progress analytics** — per-exercise strength trends over time
 
-# Configure environment
-copy .env.example .env  # Windows
-# cp .env.example .env  # macOS/Linux
+### Nutrition
+- **Meal planner** — calorie and macro targets, day-by-day meals
+- **Real food data** — USDA FoodData Central lookup fills macros automatically
+- **AI meal scanner** — photograph a meal, get an estimated calorie and macro breakdown
+- **Recipes** — build manually, generate with AI, or import from any recipe URL
+- **Shopping lists and pantry** — generated from assigned plans
 
-# Edit .env with your settings (SMTP, database, etc.)
+### Client engagement
+- **Progress tracking** — measurements, body composition, photos, and timelapse
+- **Habits and streaks** — daily checklists with a focus timer
+- **Journal** — rotating reflection prompts; entries are AI-summarised for the trainer with sentiment
+- **Recovery & readiness** — daily sleep/stress logging generates a same-day AI recovery protocol
+- **Community feeds** — separate trainer and client spaces
+- **Messaging** — direct chat with media attachments
+- **Push notifications** — web push on mobile and desktop
 
-# Start server
-uvicorn app.main:app --reload
+### Business
+- **CRM** — lead pipeline with stages and lead-to-client conversion
+- **Scheduling** — weekly calendar, session booking, video sessions
+- **Contracts & waivers** — in-app e-signature, PAR-Q, intake, and medical release forms
+- **Documents** — everything a trainer sends appears in the client's Documents page
+- **Resources** — share files, links, videos, and guides with your own clients
+- **Expenses and tasks** — categorised business spending with CSV export
+- **Bulk import** — CSV or a link-shared Google Sheet
+
+### AI (Cloudflare Workers AI, no API key required)
+Coach briefings, programming and nutrition assistance, meal photo analysis, form
+checks, recovery protocols, journal summarisation, recipe extraction, and plan
+generation. Optionally point it at the Anthropic API instead by setting `LLM_API_KEY`.
+
+---
+
+## Architecture
+
+Everything runs on Cloudflare — no origin server, no container.
+
+```
+React 18 + Vite + Tailwind        →  Cloudflare Pages (static)
+functions/api/[[path]].js         →  Pages Function (all /api/* routes)
+D1 (SQLite)                       →  users, entities, audit_log
+R2                                →  uploads (documents, photos, media)
+Workers AI                        →  llama-3.3-70b (text) + llava (vision)
 ```
 
-Server runs at: **http://localhost:8000**
+Application data uses a single `entities` table (`id`, `entity_type`, JSON `data`,
+`created_by`, timestamps), which keeps the schema flexible while every read and write
+passes through one server-side authorisation layer.
 
-Interactive API docs: **http://localhost:8000/docs**
+**Stack:** React 18 · Vite · Tailwind · React Router · TanStack Query · Radix UI ·
+Recharts · framer-motion · Cloudflare Pages/Functions/D1/R2/Workers AI
 
-### Frontend Setup
+---
+
+## Security & compliance
+
+Built to support HIPAA technical safeguards, with NASM/ISSA-aligned professional
+practice built into the coaching workflow.
+
+- **Authentication** — PBKDF2-SHA256 (100,000 iterations, per-user salt); HMAC-SHA256 signed session tokens
+- **Authorisation** — every entity read and write is scoped server-side; trainers cannot reach another trainer's clients, and a record cannot be fetched by guessing its id
+- **Admin model** — admin status comes solely from the `ADMIN_EMAILS` allowlist, re-checked on every request; accounts cannot self-promote
+- **Brute-force protection** — accounts lock for 15 minutes after 10 failed sign-ins
+- **Audit trail** — sign-ins, failures, lockouts, record changes, PHI reads, exports, and deletions (§164.312(b)); retained independently of account deletion
+- **Automatic sign-out** — 30 minutes idle
+- **Transport** — HSTS, strict Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, restrictive `Permissions-Policy`; no third-party scripts
+- **Data rights** — one-click export of everything held on an account, and true account deletion
+- **Secrets** — no credentials in source; all injected as encrypted Cloudflare secrets
+
+Signup is gated by design: trainers need a beta key, clients must be invited by their
+trainer, and solo users sign up freely.
+
+> ApexCoach provides fitness coaching tools, not medical advice. Using it in a context
+> covered by HIPAA requires a Business Associate Agreement with your infrastructure
+> providers and your own administrative and physical safeguards.
+
+---
+
+## Running it yourself
+
+**Prerequisites:** Node 18+, a Cloudflare account, and Wrangler.
 
 ```bash
-cd web-client
-
-# Install dependencies
+git clone https://github.com/Rehchu/ApexTraining.git
+cd ApexTraining
 npm install
-
-# Start development server
-npm run dev
 ```
 
-Frontend runs at: **http://localhost:5173**
-
-## 📚 Documentation
-
-- **[v1.2 Setup Guide](docs/v1.2-setup-guide.md)** - Complete installation and configuration
-- **[Workout Tracking](docs/workout-tracking.md)** - Exercise library, workout creation, progress tracking
-- **[PDF & Email System](docs/pdf-email-system.md)** - PDF generation, email templates, SMTP configuration
-- **[Quest System](docs/quest-system.md)** - Gamification features
-- **[Samsung Health](docs/samsung-health.md)** - Integration guide
-- **[Dynamic Avatars](docs/dynamic-avatars.md)** - Avatar system
-- **[Desktop App](docs/desktop-app-setup.md)** - Electron app setup
-
-## 🔑 Key Features
-
-### For Trainers
-- ✅ Client management and onboarding
-- ✅ Workout program creation with nested exercises/sets
-- ✅ Meal planning with nutrition tracking
-- ✅ Progress monitoring and analytics
-- ✅ Video call integration
-- ✅ Messaging system
-- ✅ PDF report generation
-- ✅ Email communication
-- ✅ White-label branding
-- ✅ Team collaboration
-- 🚧 Trainer dashboard with analytics
-- 🚧 Calendar view for scheduling
-
-### For Clients
-- ✅ Personalized workout programs
-- ✅ Meal plans and nutrition guidance
-- ✅ Progress tracking (measurements, photos)
-- ✅ Achievement system and quests
-- ✅ Video calls with trainer
-- ✅ Direct messaging
-- ✅ Samsung Health integration
-- ✅ Profile sharing
-- 🚧 Workout logging UI
-- 🚧 Exercise library browser
-
-### Technical Features
-- ✅ FastAPI backend with SQLAlchemy ORM
-- ✅ React + TypeScript frontend
-- ✅ Electron desktop app
-- ✅ WebRTC video calls
-- ✅ WebSocket real-time messaging
-- ✅ Push notifications
-- ✅ PDF generation (ReportLab + Matplotlib)
-- ✅ SMTP email system with templates
-- ✅ SQLite/PostgreSQL/MySQL support
-- ✅ JWT authentication
-- ✅ File uploads (videos, photos)
-- ✅ Cloudflare Worker integration
-
-## 📋 API Endpoints
-
-### Workout Tracking (`/workouts`)
-- `GET /exercises` - List exercises with filters
-- `POST /exercises` - Create exercise
-- `GET /exercises/{id}` - Get exercise
-- `PUT/DELETE /exercises/{id}` - Update/delete exercise
-- `GET /` - List workouts with filters
-- `POST /` - Create workout with nested setgroups/sets
-- `GET /{id}` - Get workout with full details
-- `PUT/DELETE /{id}` - Update/delete workout
-- `POST /{id}/complete` - Mark workout complete
-- `POST /{id}/setgroups` - Add exercise to workout
-- `PUT/DELETE /setgroups/{id}` - Update/delete setgroup
-- `POST /setgroups/{id}/sets` - Add set
-- `PUT/DELETE /sets/{id}` - Update/delete set
-- `GET /clients/{id}/exercise-progress/{exercise_id}` - Progress tracking
-- `GET /clients/{id}/stats` - Client statistics
-
-### PDF Generation (`/pdf`)
-- `GET /workout/{id}` - Download workout PDF
-- `GET /meal-plan/{client_id}` - Download meal plan PDF
-- `GET /progress-report/{client_id}` - Download progress report PDF
-- `GET /health-stats/{client_id}` - Download health stats PDF
-
-### Email System (`/email`)
-- `POST /send-workout` - Email workout plan with PDF
-- `POST /send-meal-plan` - Email meal plan with PDF
-- `POST /send-progress-report` - Email progress report with PDF
-- `POST /send-health-stats` - Email health stats with PDF
-
-### Client Management (`/clients`)
-- `GET /` - List clients
-- `POST /` - Create client
-- `GET /{id}` - Get client details
-- `PUT/DELETE /{id}` - Update/delete client
-
-### Measurements (`/clients/{id}/measurements`)
-- `GET /` - List measurements
-- `POST /` - Log new measurement
-- `GET /{measurement_id}` - Get measurement
-- `PUT/DELETE /{measurement_id}` - Update/delete measurement
-
-### Meals (`/clients/{id}/meals`)
-- `GET /` - List meals
-- `POST /` - Create meal plan
-- `GET /{meal_id}` - Get meal
-- `PUT/DELETE /{meal_id}` - Update/delete meal
-
-### Quests & Achievements (`/quests`)
-- Quest management, milestone tracking, achievement awards
-
-### Other
-- `/trainers` - Trainer authentication and management
-- `/teams` - Team collaboration
-- `/messages` - Real-time messaging
-- `/video` - Video call signaling
-- `/branding` - White-label customization
-- `/push` - Push notifications
-- `/integrations` - Samsung Health, etc.
-- `/workouts` - Workout video uploads
-- `/share` - Profile sharing
-
-## 🔧 Configuration
-
-### Environment Variables (`.env`)
-
-```env
-# Database
-DATABASE_URL=sqlite:///./backend_data.db
-
-# SMTP Email
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-FROM_EMAIL=your-email@gmail.com
-FROM_NAME=FitTrack Pro
-
-# JWT Authentication
-SECRET_KEY=your-secret-key-change-this
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# Optional
-PUSH_API_KEY=
-WEBRTC_ICE_SERVERS=[]
-SAMSUNG_CLIENT_ID=
-SAMSUNG_CLIENT_SECRET=
-```
-
-### Gmail SMTP Setup
-
-1. Enable 2-Factor Authentication
-2. Generate App Password: https://myaccount.google.com/apppasswords
-3. Use App Password as `SMTP_PASSWORD`
-
-## 🧪 Testing
+Create the Cloudflare resources once:
 
 ```bash
-# Start backend
-cd backend
-uvicorn app.main:app --reload
-
-# Visit interactive docs
-# http://localhost:8000/docs
-
-# Test PDF generation
-curl -H "Authorization: Bearer TOKEN" \
-  http://localhost:8000/pdf/workout/1 \
-  --output workout.pdf
-
-# Test email sending
-curl -X POST \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"workout_id": 1}' \
-  http://localhost:8000/email/send-workout
+npx wrangler d1 create apextraining
+npx wrangler r2 bucket create apextraining-files
 ```
 
-## 🏗️ Project Structure
+Put the returned `database_id` into `wrangler.jsonc`, then configure your environment:
 
-```
-FitTrack Pro 1.1/
-├── backend/
-│   ├── app/
-│   │   ├── main.py                      # FastAPI app entry point
-│   │   ├── models.py                    # SQLAlchemy models
-│   │   ├── database.py                  # Database connection
-│   │   ├── pdf_generator.py             # PDF generation system
-│   │   ├── email_service.py             # Email system with templates
-│   │   ├── routes/
-│   │   │   ├── workout_tracking_router.py  # Workout tracking API
-│   │   │   ├── pdf_router.py               # PDF download endpoints
-│   │   │   ├── email_router.py             # Email sending endpoints
-│   │   │   ├── trainer_router.py           # Trainer auth/management
-│   │   │   ├── meal_router.py              # Meal planning
-│   │   │   ├── measurements_router.py      # Progress tracking
-│   │   │   └── ... (12 more routers)
-│   │   ├── schemas/
-│   │   │   ├── workout_tracking.py      # Pydantic schemas for workouts
-│   │   │   └── ...
-│   │   └── utils/
-│   │       ├── auth.py                  # JWT authentication
-│   │       └── nutrition.py             # Nutrition calculations
-│   ├── requirements.txt                 # Python dependencies
-│   └── .env.example                     # Environment template
-├── web-client/
-│   ├── src/
-│   │   ├── pages/                       # React pages
-│   │   ├── components/                  # React components
-│   │   ├── stores/                      # State management
-│   │   └── services/                    # API clients
-│   └── package.json
-├── desktop-app/
-│   ├── src/
-│   │   ├── main.js                      # Electron main process
-│   │   └── renderer/                    # React UI
-│   └── package.json
-├── docs/
-│   ├── v1.2-setup-guide.md              # Setup instructions
-│   ├── workout-tracking.md              # Workout system docs
-│   ├── pdf-email-system.md              # PDF/Email docs
-│   └── ...
-├── infra/
-│   └── cloudflare/                      # Cloudflare Worker
-├── uploads/                             # User uploads (gitignored)
-└── README.md
+```bash
+cp .dev.vars.example .dev.vars   # fill in your own values
 ```
 
-## 🎯 Roadmap
+Run it locally (tables are created automatically on first request):
 
-### v1.2 (In Progress)
-- ✅ Workout tracking backend
-- ✅ PDF generation system
-- ✅ Email system
-- 🚧 Workout UI components
-- 🚧 Trainer dashboard
-- 🚧 Calendar view
+```bash
+npm run build
+npx wrangler pages dev dist
+```
 
-### v1.3 (Planned)
-- Exercise video library
-- Auto-progression algorithms
-- Workout templates
-- Advanced analytics
-- Mobile app (React Native)
+Deploy:
 
-### v2.0 (Future)
-- AI form analysis
-- Nutrition AI assistant
-- Integration marketplace
-- Multi-language support
-- Advanced reporting
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name=apextraining
+```
 
-## 🤝 Contributing
+Set the production secrets (never commit them):
 
-This is a personal project, but suggestions and feedback are welcome!
+```bash
+npx wrangler pages secret put AUTH_SECRET    --project-name=apextraining
+npx wrangler pages secret put ADMIN_EMAILS   --project-name=apextraining
+npx wrangler pages secret put BETA_KEYS      --project-name=apextraining
+# optional integrations
+npx wrangler pages secret put RESEND_API_KEY --project-name=apextraining
+npx wrangler pages secret put USDA_API_KEY   --project-name=apextraining
+npx wrangler pages secret put EXERCISEDB_API_KEY --project-name=apextraining
+npx wrangler pages secret put VAPID_PUBLIC_KEY   --project-name=apextraining
+npx wrangler pages secret put VAPID_PRIVATE_KEY  --project-name=apextraining
+```
 
-## 📄 License
+`BETA_KEYS` accepts a comma-separated list, where each entry is `KEY`, or
+`KEY:Name:email` to reserve a key for one person:
 
-MIT License - Free to use, modify, and distribute.
+```
+ACOACH-XXXXXXXX,ACOACH-YYYYYYYY,COACH-ZZZZZZZZ:Jane Doe:jane@example.com
+```
 
-## 🙏 Credits
+The app runs without any third-party keys — Workers AI covers the AI features, and
+integrations degrade gracefully when their key is absent.
 
-**Dedicated to MaxWCooper** - This project embodies the "No Tiers. No Limits. No Catch." philosophy.
+---
 
-**Architecture Inspiration**: Pure Training by hneels - Workout tracking pattern
+## Repository layout
 
-## 📞 Support
+```
+src/
+  pages/          one file per route (auto-registered in pages.config.js)
+  components/     feature components, grouped by domain
+  api/            backend client
+  lib/            auth context, utilities
+functions/
+  api/[[path]].js the entire backend
+public/           static assets, PWA manifest, service worker, security headers
+base44/           legacy Base44 export, kept for reference
+pet-models-wip/   3D companion models (feature not yet shipped)
+```
 
-- Check `/docs` folder for detailed guides
-- Visit `/docs` API endpoint for interactive documentation
-- Review example code in documentation files
+---
 
+## Project history
+
+ApexCoach began as **FitTrack Pro**, a Python/FastAPI backend with an Electron desktop
+client, and was later rebuilt on the Base44 platform. It now runs entirely on
+Cloudflare with its own authentication, database, and AI — no platform lock-in and no
+per-seat pricing. The earlier implementations remain in this repository's history.
+
+---
+
+## Roadmap
+
+- 3D companion — evolving avatar pets with a journey map and quests (models in progress)
+- Wearable integration — Apple Health, Google Fit, Whoop, Oura
+- Native mobile shells for iOS and Android
+- Group and small-team coaching
+- Trainer marketplace for programme templates
+
+---
+
+## Licence
+
+All rights reserved. Currently in private beta.
