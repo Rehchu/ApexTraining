@@ -55,6 +55,13 @@ export default function Settings() {
   const [isClient, setIsClient] = useState(false);
   // Billing is a trainer concern; a trainer who also has a client record still needs it.
   const isTrainer = user?.user_type === "trainer" || user?.role === "admin";
+  // Beta-key trainers are comped for life, so billing is irrelevant to them —
+  // hide the tab entirely rather than showing a plan they will never buy.
+  const isCompedTrainer = !!(
+    user?.beta_key_used || user?.data?.beta_key_used ||
+    user?.beta_key_verified || user?.data?.beta_key_verified
+  );
+  const showBilling = isTrainer && !isCompedTrainer;
   const { system, setUnitSystem } = useUnitSystem();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
@@ -349,7 +356,7 @@ export default function Settings() {
             <TabsTrigger value="pwa" className="flex-1 sm:flex-none text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap">
               <MonitorSmartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> App
             </TabsTrigger>
-            {isTrainer && (
+            {showBilling && (
               <TabsTrigger value="billing" className="flex-1 sm:flex-none text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap">
                 <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Billing
               </TabsTrigger>
@@ -747,7 +754,7 @@ export default function Settings() {
           <InstallGuide />
         </TabsContent>
 
-        {isTrainer && (
+        {showBilling && (
           <TabsContent value="billing" className="space-y-6">
             <BillingSettings />
           </TabsContent>

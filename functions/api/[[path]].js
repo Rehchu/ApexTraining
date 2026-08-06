@@ -1108,6 +1108,15 @@ async function invokeLLM(payload, env) {
   const prompt = payload?.prompt || '';
   const schema = payload?.response_json_schema;
   const imageUrl = Array.isArray(payload?.file_urls) ? payload.file_urls[0] : payload?.file_url || null;
+  // If the caller asked for image analysis, never silently fall through to the
+  // text model — it would happily invent a plausible meal for a photo it never
+  // saw. Fail loudly instead so the UI can say "we couldn't read that image".
+  const wantedVision = 'file_urls' in (payload || {}) || 'file_url' in (payload || {});
+  if (wantedVision && !imageUrl) {
+    return schema
+      ? { __stub: true, error: 'no_image', message: 'No image was received. Please try again.' }
+      : { __stub: true, message: 'No image was received. Please try again.' };
+  }
   const sys = schema
     ? `Respond with ONLY valid JSON matching this schema, no prose or markdown fences: ${JSON.stringify(schema)}`
     : 'You are a helpful fitness coaching assistant.';
