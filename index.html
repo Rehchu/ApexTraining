@@ -16,6 +16,22 @@
          unpkg.com CDN. Keeps the notebook whiteboard working offline and
          stops third-party JS executing in a page that renders PHI. -->
     <script>window.EXCALIDRAW_ASSET_PATH = "/";</script>
+    <!-- Apply the saved theme before first paint so dark-mode users never see
+         a white flash while the bundle loads. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("apex_theme") || "light";
+          var dark = t === "dark" || (t === "system" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) {
+            document.documentElement.classList.add("dark");
+            document.querySelector('meta[name="theme-color"]')
+              .setAttribute("content", "#0A0C10");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

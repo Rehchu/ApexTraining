@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { base44 } from "@/api/base44Client";
 import ClientLayout from "@/components/ClientLayout";
+import { useTheme } from "@/components/hooks/useTheme";
+import CommandPalette from "@/components/CommandPalette";
 import BottomNav from "@/components/BottomNav";
 import PullToRefresh from "react-simple-pull-to-refresh";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -288,11 +290,8 @@ export default function Layout({ children, currentPageName }) {
     };
   }, [queryClient, setAppLogoUrl]);
 
-  // System Dark Mode Sync
-  useEffect(() => {
-    // Light theme is the app default; '.dark' can be toggled from Settings later.
-    document.documentElement.classList.remove('dark');
-  }, []);
+  // Applies the saved light/dark/system preference (Settings → App).
+  useTheme();
 
   // Set viewport for PWA and safe area support
   useEffect(() => {
@@ -585,7 +584,16 @@ export default function Layout({ children, currentPageName }) {
           <div className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           </div>
-          <input type="text" placeholder="Search anything..." className="w-full bg-background border border-border rounded-full py-2.5 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors shadow-inner" />
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('apex:open-command-palette'))}
+            className="w-full flex items-center bg-background border border-border rounded-full py-2.5 pl-10 pr-3 text-sm text-muted-foreground hover:border-primary/50 focus:outline-none focus:border-primary/50 transition-colors shadow-inner text-left"
+          >
+            <span className="flex-1">Search pages, clients, actions...</span>
+            <kbd className="ml-2 hidden xl:inline-flex items-center gap-0.5 rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </button>
         </div>
         <div className="flex items-center gap-4">
           <NotificationBell user={user} />
@@ -628,6 +636,7 @@ export default function Layout({ children, currentPageName }) {
       </main>
 
       {!isClient && <BottomNav user={user} unreadMessages={unreadMessages} />}
+      <CommandPalette isClient={false} />
       <PWAInstallPrompt />
 
       <ClientPreviewPicker

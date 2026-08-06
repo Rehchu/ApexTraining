@@ -40,6 +40,8 @@ import WorkoutForm from "@/components/workouts/WorkoutForm";
 import MealPlanForm from "@/components/meals/MealPlanForm";
 import GoogleSheetsImporter from "@/components/imports/GoogleSheetsImporter";
 import { cn } from "@/lib/utils";
+import EmptyState from "@/components/ui/empty-state";
+import SkeletonList from "@/components/ui/skeleton-list";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -206,19 +208,7 @@ export default function Clients() {
 
       {/* Client Grid/List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="glass-card rounded-2xl p-5 animate-pulse">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-secondary" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-secondary rounded w-3/4" />
-                  <div className="h-3 bg-secondary rounded w-1/2" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <SkeletonList count={6} columns={3} avatar />
       ) : filteredClients.length > 0 ? (
         <div className={cn(
           "grid gap-4",
@@ -238,24 +228,22 @@ export default function Clients() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 glass-card rounded-2xl">
-          <Users className="w-16 h-16 mx-auto text-gray-600" />
-          <h3 className="mt-4 text-lg font-medium text-foreground">No clients found</h3>
-          <p className="mt-2 text-muted-foreground">
-            {searchQuery || statusFilter !== "all" 
-              ? "Try adjusting your search or filters"
-              : "Get started by adding your first client"}
-          </p>
-          {!searchQuery && statusFilter === "all" && (
-            <Button 
-              className="mt-6 bg-gradient-to-r from-emerald-500 to-teal-600"
-              onClick={() => setShowOnboarding(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Onboard Your First Client
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Users}
+          filtered={!!searchQuery || statusFilter !== "all"}
+          onClearFilters={() => { setSearchQuery(""); setStatusFilter("all"); }}
+          title="Add your first client"
+          description="Clients get their own portal where they see the plans you assign and log their training."
+          actionLabel="Onboard a client"
+          onAction={() => setShowOnboarding(true)}
+          secondaryLabel="Import from CSV"
+          onSecondary={() => navigate(createPageUrl("BulkImport"))}
+          hints={[
+            "Onboarding emails them an invite — client accounts are invite-only, so they sign up with the same address you enter.",
+            "Open any client card to assign workouts and meal plans, track progress, and store their documents.",
+            "Everything you assign appears in their app straight away, and anything they log comes straight back to you.",
+          ]}
+        />
       )}
 
       {/* Forms */}

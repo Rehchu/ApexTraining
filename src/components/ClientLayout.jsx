@@ -45,6 +45,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import ClientBottomNav from "@/components/ClientBottomNav";
 import FeatureGuide from "@/components/FeatureGuide";
+import { applyTheme } from "@/components/hooks/useTheme";
+import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -211,8 +213,7 @@ export default function ClientLayout({ children, currentPageName }) {
 
   // System Dark Mode Sync
   useEffect(() => {
-    // Light theme is the app default; '.dark' can be toggled from Settings later.
-    document.documentElement.classList.remove('dark');
+    applyTheme();
   }, []);
 
   const previewClientId = localStorage.getItem('clientPreviewId');
@@ -534,6 +535,7 @@ export default function ClientLayout({ children, currentPageName }) {
       </main>
 
       <ClientBottomNav currentPageName={currentPageName} user={user} clientProfile={clientProfile} unreadMessages={unreadMessages} portalFeatures={portalFeatures} />
+      <CommandPalette isClient />
     </div>);
 
 }

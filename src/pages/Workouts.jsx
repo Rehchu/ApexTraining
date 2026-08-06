@@ -49,6 +49,7 @@ import {
 import WorkoutForm from "@/components/workouts/WorkoutForm";
 import AIWorkoutGenerator from "@/components/ai/AIWorkoutGenerator";
 import { cn } from "@/lib/utils";
+import EmptyState from "@/components/ui/empty-state";
 import { toast } from "sonner";
 
 const statusStyles = {
@@ -401,24 +402,20 @@ export default function Workouts() {
           })}
             </div>
           ) : (
-            <div className="text-center py-16 glass-card rounded-2xl">
-              <Dumbbell className="w-16 h-16 mx-auto text-gray-600" />
-              <h3 className="mt-4 text-lg font-medium text-foreground">No workout plans found</h3>
-              <p className="mt-2 text-muted-foreground">
-                {searchQuery || statusFilter !== "all" 
-                  ? "Try adjusting your search or filters"
-                  : "Create your first workout plan to get started"}
-              </p>
-              {!searchQuery && statusFilter === "all" && (
-                <Button 
-                  className="mt-6 bg-gradient-to-r from-purple-500 to-pink-600"
-                  onClick={() => setShowWorkoutForm(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Plan
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={Dumbbell}
+              filtered={!!searchQuery || statusFilter !== "all"}
+              onClearFilters={() => { setSearchQuery(""); setStatusFilter("all"); }}
+              title="Build your first workout plan"
+              description="Programme a week at a time, assign it to a client, and they'll see it in their app instantly."
+              actionLabel="Create a plan"
+              onAction={() => setShowWorkoutForm(true)}
+              hints={[
+                "Open a day and start typing an exercise name — the library fills in demo images and video for you.",
+                "Set sets, reps, and RIR per exercise, then use Duplicate Day to repeat a session.",
+                "Save any plan as a template to reuse it with future clients in one click.",
+              ]}
+            />
           )}
         </TabsContent>
 

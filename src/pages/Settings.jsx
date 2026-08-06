@@ -19,7 +19,9 @@ import {
   Shield,
   Plug,
   Download,
-  Loader2 } from
+  Loader2,
+  Sun,
+  Moon } from
 "lucide-react";
 // Beta keys are managed via the BetaKey entity
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,7 @@ import {
   AlertDialogTitle } from
 "@/components/ui/alert-dialog";
 import { useUnitSystem } from "@/components/hooks/useUnitSystem";
+import { useTheme } from "@/components/hooks/useTheme";
 import ClientPortalSettings from "@/components/settings/ClientPortalSettings";
 import ComplianceSettings from "@/components/settings/ComplianceSettings";
 
@@ -50,6 +53,7 @@ export default function Settings() {
   const [user, setUser] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const { system, setUnitSystem } = useUnitSystem();
+  const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
@@ -696,6 +700,42 @@ export default function Settings() {
                 </TabsContent>
 
         <TabsContent value="pwa" className="space-y-6">
+          {/* Appearance */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-1">Appearance</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose how ApexCoach looks on this device. "System" follows your phone or
+              computer's own light/dark setting.
+            </p>
+            <div className="grid grid-cols-3 gap-3 max-w-md">
+              {[
+                { value: "light", label: "Light", Icon: Sun },
+                { value: "dark", label: "Dark", Icon: Moon },
+                { value: "system", label: "System", Icon: MonitorSmartphone },
+              ].map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTheme(value)}
+                  aria-pressed={theme === value}
+                  className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
+                    theme === value
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Tip: press <kbd className="px-1 py-0.5 rounded border border-border bg-secondary">Ctrl</kbd>
+              {" + "}<kbd className="px-1 py-0.5 rounded border border-border bg-secondary">K</kbd> anywhere
+              to open the command palette and switch themes instantly.
+            </p>
+          </div>
+
           <InstallGuide />
         </TabsContent>
 

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import EmptyState from "@/components/ui/empty-state";
+import SkeletonList from "@/components/ui/skeleton-list";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -335,31 +337,20 @@ export default function Meals() {
         {/* Client Plans Tab */}
         <TabsContent value="plans" className="space-y-4">
           {plansLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            </div>
+            <SkeletonList count={6} columns={3} avatar={false} lines={3} />
           ) : filteredPlans.length === 0 ? (
-            <div className="glass-card rounded-2xl">
-              <div className="flex flex-col items-center justify-center py-12">
-                <Apple className="w-16 h-16 text-gray-600 mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  No meal plans yet
-                </h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Create your first meal plan to get started
-                </p>
-                <Button
-                  onClick={() => {
-                    setEditingPlan(null);
-                    setShowForm(true);
-                  }}
-                  variant="outline"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Plan
-                </Button>
-              </div>
-            </div>
+            <EmptyState
+              icon={Apple}
+              title="Create your first meal plan"
+              description="Set calorie and macro targets, build the day's meals, and assign it — it lands in your client's Nutrition tab immediately."
+              actionLabel="Create a meal plan"
+              onAction={() => { setEditingPlan(null); setShowForm(true); }}
+              hints={[
+                "Use Add Food in any meal to search real nutrition data — calories and macros fill themselves in.",
+                "Short on time? Let AI Meal Plan draft the whole thing, then edit whatever you want.",
+                "Clients can photograph a meal to log it, so you can see what they actually ate against the plan.",
+              ]}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPlans.map((plan) => (
