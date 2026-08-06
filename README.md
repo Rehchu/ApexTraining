@@ -112,6 +112,63 @@ trainer, and solo users sign up freely.
 
 ---
 
+## API keys & environment
+
+The app is designed to run with **no third-party keys at all** — Cloudflare's Workers
+AI covers every AI feature for free, and each integration degrades gracefully when its
+key is missing. Add keys only for the capabilities you actually want.
+
+### Required
+
+You must set these two, or the app will not work correctly.
+
+| Variable | What it does | Where to get it |
+|---|---|---|
+| `AUTH_SECRET` | Signs session tokens. Anyone holding this can forge logins. | Generate your own: `openssl rand -base64 48` |
+| `ADMIN_EMAILS` | Comma-separated list of admin accounts. Admin status is re-checked on every request, so this is the only route to admin. | You choose |
+
+### Cloudflare bindings (also required)
+
+Created once with Wrangler rather than pasted as keys — see the setup steps below.
+
+| Binding | Purpose | Without it |
+|---|---|---|
+| `DB` (D1) | All application data | Nothing works |
+| `FILES` (R2) | Photos, documents, uploads | Uploads fall back to inline data URLs (dev only) |
+| `AI` (Workers AI) | Every AI feature | AI features return a "not configured" notice |
+
+### Optional integrations
+
+All genuinely optional — the only thing affected is the feature each one powers.
+
+| Variable | Powers | Where to get it | Without it |
+|---|---|---|---|
+| `BETA_KEYS` | Invite keys for trainer signup | You choose — format below | Trainer self-signup is closed; only `ADMIN_EMAILS` can create trainers |
+| `RESEND_API_KEY`<br>`EMAIL_FROM` | Client invitations, session reminders, resource emails | [resend.com](https://resend.com) — free tier | Emails no-op; invite clients by sharing the link yourself |
+| `USDA_API_KEY` | Real food and macro lookup in the meal planner | [fdc.nal.usda.gov](https://fdc.nal.usda.gov/api-key-signup.html) — free | Food search returns nothing; macros must be entered by hand |
+| `EXERCISEDB_API_KEY` | Exercise library with demo images and video | [RapidAPI → ExerciseDB](https://rapidapi.com) | Exercise search returns nothing; exercises must be typed in |
+| `VAPID_PUBLIC_KEY`<br>`VAPID_PRIVATE_KEY`<br>`VAPID_SUBJECT` | Web push notifications | Generate your own: `npx web-push generate-vapid-keys` | No push notifications; in-app notifications still work |
+| `STRIPE_SECRET_KEY`<br>`STRIPE_PUBLISHABLE_KEY`<br>`STRIPE_WEBHOOK_SECRET` | Trainer subscriptions and billing | [dashboard.stripe.com/apikeys](https://dashboard.stripe.com/apikeys) | Billing reports "not configured"; nobody is charged |
+| `LLM_API_KEY`<br>`LLM_MODEL` | Use Anthropic's API instead of Workers AI for stronger AI output | [console.anthropic.com](https://console.anthropic.com) | Falls back to Workers AI, which is free and already sufficient |
+
+### Beta key format
+
+`BETA_KEYS` is a comma-separated list. Each entry is either a bare key, or
+`KEY:Name:email` to reserve a key for one specific person:
+
+```
+ACOACH-XXXXXXXX,ACOACH-YYYYYYYY,COACH-ZZZZZZZZ:Jane Doe:jane@example.com
+```
+
+Trainers who sign up with a beta key are **comped for life** — unlimited clients, every
+feature, and they are never shown pricing or asked for a card.
+
+> **Never commit real keys.** `.dev.vars` is gitignored, and production values belong in
+> Cloudflare's encrypted secrets. If a key is ever exposed, roll it at the provider and
+> re-run the matching `wrangler pages secret put` command — no code change needed.
+
+---
+
 ## Running it yourself
 
 **Prerequisites:** Node 18+, a Cloudflare account, and Wrangler.
@@ -152,26 +209,42 @@ npx wrangler pages deploy dist --project-name=apextraining
 Set the production secrets (never commit them):
 
 ```bash
-npx wrangler pages secret put AUTH_SECRET    --project-name=apextraining
-npx wrangler pages secret put ADMIN_EMAILS   --project-name=apextraining
-npx wrangler pages secret put BETA_KEYS      --project-name=apextraining
-# optional integrations
-npx wrangler pages secret put RESEND_API_KEY --project-name=apextraining
-npx wrangler pages secret put USDA_API_KEY   --project-name=apextraining
-npx wrangler pages secret put EXERCISEDB_API_KEY --project-name=apextraining
-npx wrangler pages secret put VAPID_PUBLIC_KEY   --project-name=apextraining
-npx wrangler pages secret put VAPID_PRIVATE_KEY  --project-name=apextraining
+# required
+npx wrangler pages secret put AUTH_SECRET             --project-name=apextraining
+npx wrangler pages secret put ADMIN_EMAILS            --project-name=apextraining
+
+# optional — add only what you want
+npx wrangler pages secret put BETA_KEYS               --project-name=apextraining
+npx wrangler pages secret put RESEND_API_KEY          --project-name=apextraining
+npx wrangler pages secret put EMAIL_FROM              --project-name=apextraining
+npx wrangler pages secret put USDA_API_KEY            --project-name=apextraining
+npx wrangler pages secret put EXERCISEDB_API_KEY      --project-name=apextraining
+npx wrangler pages secret put VAPID_PUBLIC_KEY        --project-name=apextraining
+npx wrangler pages secret put VAPID_PRIVATE_KEY       --project-name=apextraining
+npx wrangler pages secret put VAPID_SUBJECT           --project-name=apextraining
+npx wrangler pages secret put STRIPE_SECRET_KEY       --project-name=apextraining
+npx wrangler pages secret put STRIPE_PUBLISHABLE_KEY  --project-name=apextraining
+npx wrangler pages secret put STRIPE_WEBHOOK_SECRET   --project-name=apextraining
 ```
 
-`BETA_KEYS` accepts a comma-separated list, where each entry is `KEY`, or
-`KEY:Name:email` to reserve a key for one person:
+### Setting up billing (optional)
+
+Only needed if you want to charge trainers. In Stripe, create three products, each with
+a monthly and an annual price, and give the prices these exact **lookup keys** — the
+backend resolves prices by key, so amounts can change in Stripe without a redeploy:
 
 ```
-ACOACH-XXXXXXXX,ACOACH-YYYYYYYY,COACH-ZZZZZZZZ:Jane Doe:jane@example.com
+apex_starter_monthly   apex_starter_annual
+apex_pro_monthly       apex_pro_annual
+apex_studio_monthly    apex_studio_annual
 ```
 
-The app runs without any third-party keys — Workers AI covers the AI features, and
-integrations degrade gracefully when their key is absent.
+Then add a webhook endpoint pointing at `https://<your-domain>/api/stripe/webhook`,
+subscribed to `checkout.session.completed`, `customer.subscription.created`,
+`customer.subscription.updated`, `customer.subscription.deleted`, and
+`invoice.payment_failed`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+Per-plan client limits live in `functions/api/[[path]].js` (the `PLANS` constant).
 
 ---
 

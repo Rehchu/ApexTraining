@@ -2,30 +2,49 @@
 # In production these are set as encrypted secrets on Cloudflare Pages:
 #   npx wrangler pages secret put <NAME> --project-name=apextraining
 # NEVER commit the real .dev.vars — it is gitignored.
+#
+# See the "API keys & environment" section of README.md for where to get each
+# key and exactly what breaks without it. Only the first two are required.
 
-# Signs the session JWTs. Use a long random string (e.g. `openssl rand -base64 48`).
+# ── Required ────────────────────────────────────────────────────────────────
+
+# Signs the session JWTs. Generate with: openssl rand -base64 48
 AUTH_SECRET=replace-with-a-long-random-string
 
-# Comma-separated list of admin accounts. These emails get the admin role on
-# every request; everyone else is forced back to a normal user.
+# Comma-separated admin accounts. These emails get the admin role on every
+# request; everyone else is forced back to a normal user.
 ADMIN_EMAILS=you@example.com,teammate@example.com
 
-# Transactional email (client invitations, session reminders) — https://resend.com
-RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
-EMAIL_FROM=ApexCoach <onboarding@resend.dev>
+# ── Optional ────────────────────────────────────────────────────────────────
 
-# Food/nutrition lookup — https://fdc.nal.usda.gov/api-key-signup.html
-USDA_API_KEY=your-usda-key
+# Invite keys for trainer signup. Comma-separated; each entry is either a bare
+# key or KEY:Name:email to reserve one for a specific person. Trainers who sign
+# up with a beta key are comped for life and never see billing.
+# BETA_KEYS=ACOACH-XXXXXXXX,ACOACH-YYYYYYYY,COACH-ZZZZZZZZ:Jane Doe:jane@example.com
 
-# Exercise library (ExerciseDB via RapidAPI)
-EXERCISEDB_API_KEY=your-rapidapi-key
+# Transactional email (client invitations, session reminders) — resend.com
+# RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+# EMAIL_FROM=ApexCoach <onboarding@resend.dev>
 
-# Web push (generate a pair with `npx web-push generate-vapid-keys`)
-VAPID_PUBLIC_KEY=your-public-key
-VAPID_PRIVATE_KEY=your-private-key
-VAPID_SUBJECT=mailto:you@example.com
+# Food & nutrition lookup — https://fdc.nal.usda.gov/api-key-signup.html
+# USDA_API_KEY=your-usda-key
 
-# Optional: use Anthropic instead of the built-in Cloudflare Workers AI.
-# When unset, the app falls back to Workers AI (no key required).
+# Exercise library with demo media (ExerciseDB via RapidAPI)
+# EXERCISEDB_API_KEY=your-rapidapi-key
+
+# Web push. Generate a pair with: npx web-push generate-vapid-keys
+# VAPID_PUBLIC_KEY=your-public-key
+# VAPID_PRIVATE_KEY=your-private-key
+# VAPID_SUBJECT=mailto:you@example.com
+
+# Trainer subscriptions — https://dashboard.stripe.com/apikeys
+# Requires products/prices with the lookup keys listed in README.md, plus a
+# webhook pointing at https://<your-domain>/api/stripe/webhook
+# STRIPE_SECRET_KEY=sk_live_xxxxxxxx
+# STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxx
+# STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxx
+
+# Use Anthropic's API instead of the built-in Cloudflare Workers AI.
+# When unset, the app falls back to Workers AI (free, no key required).
 # LLM_API_KEY=sk-ant-xxxxxxxx
 # LLM_MODEL=claude-sonnet-5
