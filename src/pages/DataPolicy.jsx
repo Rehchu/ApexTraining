@@ -1,7 +1,7 @@
 import React from "react";
 import LegalLayout from "@/components/LegalLayout";
 
-const UPDATED = "July 15, 2026";
+const UPDATED = "July 23, 2026";
 
 const body = `
 ## 1. Purpose of This Policy

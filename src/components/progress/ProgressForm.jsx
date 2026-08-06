@@ -98,47 +98,24 @@ export default function ProgressForm({ open, onOpenChange, client, log, onSubmit
     e.preventDefault();
     setIsLoading(true);
     
-    // Auto-adapt dragon based on progress
+    // Logging progress is the source of truth for the client's current stats —
+    // roll the new weight and lifts up onto their profile so every other screen
+    // (dashboard, plans, analytics) reflects the latest numbers.
     if (client && !log) {
-      let bodyType = client.pet_state?.body_type || "default";
-      let changed = false;
-      
-      const newWeight = parseFloat(formData.weight_kg);
-      const oldWeight = parseFloat(client.weight_kg);
-      if (newWeight && oldWeight && newWeight < oldWeight) {
-        bodyType = "slim";
-        changed = true;
-      }
-      
-      // Check if strength increased
-      const currentBench = parseFloat(formData.performance_metrics?.bench_press_kg);
-      const currentSquat = parseFloat(formData.performance_metrics?.squat_kg);
-      // Here currentBench is the DISPLAY unit. The oldBench on client is in KG. We compare after converting back.
-      const parsedBench = parseWeight(currentBench);
-      const parsedSquat = parseWeight(currentSquat);
-      const oldBench = parseFloat(client.performance_metrics?.bench_press_kg);
-      const oldSquat = parseFloat(client.performance_metrics?.squat_kg);
-      
-      if ((parsedBench && oldBench && parsedBench > oldBench) || 
-          (parsedSquat && oldSquat && parsedSquat > oldSquat)) {
-        bodyType = "muscular";
-        changed = true;
-      }
-      
-      if (changed) {
-        const updatedPet = { ...(client.pet_state || {}), body_type: bodyType };
-        try {
-           const { base44 } = await import('@/api/base44Client');
-           const dbPerf = {
-             ...formData.performance_metrics,
-             bench_press_kg: parseWeight(formData.performance_metrics?.bench_press_kg),
-             squat_kg: parseWeight(formData.performance_metrics?.squat_kg),
-             deadlift_kg: parseWeight(formData.performance_metrics?.deadlift_kg)
-           };
-           await base44.entities.Client.update(client.id, { pet_state: updatedPet, weight_kg: parseWeight(formData.weight_kg) || oldWeight, performance_metrics: dbPerf });
-           window.dispatchEvent(new Event('profileUpdated'));
-        } catch(e) {}
-      }
+      try {
+        const { base44 } = await import('@/api/base44Client');
+        const dbPerf = {
+          ...formData.performance_metrics,
+          bench_press_kg: parseWeight(formData.performance_metrics?.bench_press_kg),
+          squat_kg: parseWeight(formData.performance_metrics?.squat_kg),
+          deadlift_kg: parseWeight(formData.performance_metrics?.deadlift_kg)
+        };
+        await base44.entities.Client.update(client.id, {
+          weight_kg: parseWeight(formData.weight_kg) || parseFloat(client.weight_kg),
+          performance_metrics: dbPerf
+        });
+        window.dispatchEvent(new Event('profileUpdated'));
+      } catch (e) { /* the progress log itself still saves below */ }
     }
     
     const dbFormData = {

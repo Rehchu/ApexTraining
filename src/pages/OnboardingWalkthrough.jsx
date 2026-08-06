@@ -14,13 +14,13 @@ const walkthroughSteps = {
       icon: <Sparkles className="w-12 h-12 text-yellow-500" />
     },
     {
-      title: "Your Fitness Journey",
-      description: "Track your progress on an interactive map. Earn XP, unlock new zones, and evolve your AI companion as you complete workouts and hit your goals.",
+      title: "Your Progress, Tracked",
+      description: "Log workouts, weight, measurements, and photos. Your charts build themselves so you can see exactly what is changing over time.",
       icon: <Map className="w-12 h-12 text-green-500" />
     },
     {
-      title: "Quests & Challenges",
-      description: "Complete daily and weekly quests set by your trainer to earn rewards and stay motivated.",
+      title: "Habits & Consistency",
+      description: "Tick off daily habits to build streaks, and use the focus timer for distraction-free training or meal prep.",
       icon: <Target className="w-12 h-12 text-blue-500" />
     },
     {
@@ -64,7 +64,7 @@ const walkthroughSteps = {
     },
     {
       title: "Content Control",
-      description: "Create narrative quests, manage broad resources, and customize the experience for all users.",
+      description: "Manage the shared resource library, publish forms and guides, and configure the experience for every user on the platform.",
       icon: <Map className="w-12 h-12 text-green-500" />
     }
   ],
@@ -80,8 +80,8 @@ const walkthroughSteps = {
       icon: <Sparkles className="w-12 h-12 text-yellow-500" />
     },
     {
-      title: "Gamified Progress",
-      description: "Earn experience points, unlock achievements, and grow your virtual pet as you hit your personal milestones.",
+      title: "Recovery & Readiness",
+      description: "Log sleep and stress each day and get an AI recovery protocol telling you whether to push hard or back off.",
       icon: <Target className="w-12 h-12 text-green-500" />
     }
   ]

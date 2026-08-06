@@ -69,12 +69,6 @@ const clientNavGroups = [
     ]
   },
   {
-    title: "Companion",
-    items: [
-      { name: "My Pet", icon: Sparkles, page: "MyPet" }
-    ]
-  },
-  {
     title: "Community & Store",
     items: [
       { name: "Resources", icon: Library, page: "ClientResources" },

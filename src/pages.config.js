@@ -74,7 +74,6 @@ import FitnessTools from './pages/FitnessTools';
 import Home from './pages/Home';
 import IndependentOnboarding from './pages/IndependentOnboarding';
 import Meals from './pages/Meals';
-import MyPet from './pages/MyPet';
 import Messages from './pages/Messages';
 import OnboardingWalkthrough from './pages/OnboardingWalkthrough';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -123,7 +122,6 @@ export const PAGES = {
     "Home": Home,
     "IndependentOnboarding": IndependentOnboarding,
     "Meals": Meals,
-    "MyPet": MyPet,
     "Messages": Messages,
     "OnboardingWalkthrough": OnboardingWalkthrough,
     "PrivacyPolicy": PrivacyPolicy,

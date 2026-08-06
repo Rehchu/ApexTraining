@@ -1,7 +1,7 @@
 import React from "react";
 import LegalLayout from "@/components/LegalLayout";
 
-const UPDATED = "July 15, 2026";
+const UPDATED = "July 23, 2026";
 
 const body = `
 ## 1. Agreement to These Terms
@@ -46,17 +46,39 @@ Where the Service connects trainers and clients, ApexCoach acts only as a **neut
 
 ---
 
-## 7. Your Content
+## 7. Professional Standards & Scope of Practice
+Trainers using the Service agree to practise within the boundaries of their certification and applicable law. These standards reflect the codes of professional conduct published by the **National Academy of Sports Medicine (NASM)** and the **International Sports Sciences Association (ISSA)**, and apply regardless of which body (if any) certified you.
+
+**You agree that you will not:**
+
+- **Diagnose, treat, or prescribe.** Do not diagnose injury, illness, or disease; do not prescribe treatment, rehabilitation protocols, medication, or supplements; and do not interpret medical test results. Screen with tools such as the PAR-Q and **refer out** to a licensed professional whenever findings fall outside your scope.
+- **Provide medical nutrition therapy.** Do not design nutrition interventions intended to treat, manage, or cure a disease or medical condition. General, non-medical nutrition guidance and food logging are permitted; individualised therapeutic diets are not.
+- **Practise dietetics without a licence.** In **Louisiana**, the practice of dietetics/nutrition is regulated under **La. R.S. 37:3081 et seq.** and administered by the Louisiana Board of Examiners in Dietetics and Nutrition. If you are not a Licensed Dietitian/Nutritionist (LDN), or otherwise exempt, you must not hold yourself out as one or provide services reserved to licensees. Other states regulate this differently — **you are responsible for the law where you and your client are located.**
+- **Misrepresent your credentials.** Do not claim certifications, licences, degrees, or specialisations you do not hold or that have lapsed.
+- **Exceed the boundaries of the professional relationship.** Maintain appropriate professional conduct and confidentiality with every client at all times.
+
+You further agree to obtain **informed consent** and appropriate health screening before programming for a client, to maintain current **CPR/AED certification** where your certifying body requires it, and to carry any professional liability insurance required in your jurisdiction. **You alone are responsible for your compliance.** ApexCoach does not verify certifications or licensure and provides the meal-planning, exercise, and AI features as general tools, not as a determination that any particular use is lawful for you.
+
+---
+
+## 8. Electronic Signatures & Records
+The Service lets users complete and sign documents electronically (for example, service agreements, liability waivers, PAR-Q questionnaires, and medical release forms). By using these features you consent to transact electronically and agree that your typed name, acceptance action, and the associated audit record constitute a valid **electronic signature** with the same legal force as a handwritten signature under the federal **E-SIGN Act (15 U.S.C. § 7001 et seq.)** and the **Louisiana Uniform Electronic Transactions Act (La. R.S. 9:2601 et seq.)**.
+
+You may withdraw consent to transact electronically by contacting **support@apextraining.dev**, though doing so may prevent you from using parts of the Service. You are responsible for retaining copies of documents you sign; you may download them at any time from your account. ApexCoach provides the signing mechanism only and makes **no representation that any particular document is legally sufficient** for your purposes — have your own counsel review your agreements.
+
+---
+
+## 9. Your Content
 You retain ownership of the content you submit — including profiles, messages, journal entries, progress photos, logs, plans, and other materials ("User Content"). You grant ApexCoach a worldwide, non-exclusive, royalty-free license to host, store, process, display, and transmit your User Content **solely to operate and provide the Service to you and the users you share it with**. You represent that you own or have the necessary rights to your User Content and that it does not violate any law or third-party right. You are solely responsible for your User Content.
 
 ---
 
-## 8. AI Features
+## 10. AI Features
 The Service includes AI-assisted features (for example, workout and meal suggestions, journal summaries, and the trainer briefing). AI output is generated automatically, **may be inaccurate, incomplete, or inappropriate**, and must not be relied upon as professional, medical, or nutritional advice. Always apply human judgment and consult a qualified professional. We do not guarantee any particular result from AI features.
 
 ---
 
-## 9. Acceptable Use
+## 11. Acceptable Use
 You agree not to:
 
 - Use the Service in violation of any applicable law or regulation;
@@ -69,47 +91,47 @@ You agree not to:
 
 ---
 
-## 10. Intellectual Property
+## 12. Intellectual Property
 The Service and all associated software, design, text, graphics, logos, and trademarks (excluding User Content) are the exclusive property of ApexCoach and its licensors, and are protected by intellectual-property laws. We grant you a limited, non-exclusive, non-transferable, revocable license to use the Service for its intended purpose. No other rights are granted.
 
 ---
 
-## 11. Third-Party Services
+## 13. Third-Party Services
 The Service integrates third-party providers (for example, exercise and nutrition data sources and email delivery) as described in our [Data Policy](/DataPolicy). We are not responsible for the content, accuracy, or practices of third-party services. Exercise, food, and nutrition data are provided by third parties and may contain inaccuracies.
 
 ---
 
-## 12. Disclaimer of Warranties
+## 14. Disclaimer of Warranties
 THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, ACCURACY, OR UNINTERRUPTED OR ERROR-FREE OPERATION. YOU USE THE SERVICE AT YOUR SOLE RISK.
 
 ---
 
-## 13. Limitation of Liability
+## 15. Limitation of Liability
 TO THE FULLEST EXTENT PERMITTED BY LAW, APEXCOACH AND ITS OWNERS, OPERATORS, AND SUPPLIERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA, GOODWILL, OR BODILY INJURY, ARISING OUT OF OR RELATED TO YOUR USE OF (OR INABILITY TO USE) THE SERVICE. OUR TOTAL AGGREGATE LIABILITY FOR ANY CLAIM WILL NOT EXCEED THE GREATER OF (A) THE AMOUNT YOU PAID US, IF ANY, IN THE 12 MONTHS BEFORE THE CLAIM, OR (B) USD $100. Some jurisdictions do not allow certain limitations, so some of the above may not apply to you.
 
 ---
 
-## 14. Indemnification
+## 16. Indemnification
 You agree to indemnify and hold harmless ApexCoach from any claims, damages, liabilities, and expenses (including reasonable legal fees) arising from your User Content, your use of the Service, your violation of these Terms, or your violation of any law or third-party right.
 
 ---
 
-## 15. Termination
+## 17. Termination
 You may stop using the Service and delete your account at any time from Settings. We may suspend or terminate your access at any time, with or without notice, for conduct that we believe violates these Terms or is harmful to other users or the Service. Sections that by their nature should survive termination (including Sections 5–8 and 12–17) will survive.
 
 ---
 
-## 16. Changes to These Terms
+## 18. Changes to These Terms
 We may modify these Terms from time to time. When we make material changes, we will update the "Last updated" date above and, where appropriate, provide additional notice. Your continued use of the Service after changes take effect constitutes acceptance of the revised Terms.
 
 ---
 
-## 17. Governing Law & Disputes
+## 19. Governing Law & Disputes
 These Terms are governed by the laws of the **State of Louisiana, United States**, without regard to conflict-of-law principles. You agree that any dispute arising from these Terms or the Service will be resolved in the state or federal courts located in Louisiana, and you consent to their jurisdiction, except where prohibited by applicable law.
 
 ---
 
-## 18. Contact
+## 20. Contact
 Questions about these Terms? Contact us:
 
 - **Email:** support@apextraining.dev

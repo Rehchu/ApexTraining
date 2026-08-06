@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw, Flame, CheckCircle2, Timer } from "lucide-react";
 
 /**
- * FocusTimer – Inspired by lockin26's Focus Timer with "social presence effect."
- * A Pomodoro-style timer where the companion watches you work.
+ * FocusTimer – a Pomodoro-style timer for focused training or meal-prep blocks.
  */
 const PRESETS = [
   { label: "25 min", seconds: 25 * 60, name: "Focus" },
@@ -13,12 +12,12 @@ const PRESETS = [
   { label: "5 min", seconds: 5 * 60, name: "Break" },
 ];
 
-// Simple ASCII companion states
-const COMPANION_STATES = {
-  idle:    { emoji: "😤", message: "Ready to lock in?", color: "#d4a017" },
-  running: { emoji: "👀", message: "I'm watching you...", color: "#22c55e" },
-  paused:  { emoji: "😒", message: "Really? Already taking a break?", color: "#ef4444" },
-  done:    { emoji: "🔥", message: "LET'S GOOO!", color: "#f97316" },
+// Timer status shown in the ring, keyed off the current state.
+const TIMER_STATES = {
+  idle:    { Icon: Timer,         message: "Ready when you are.",            color: "#0f9d76" },
+  running: { Icon: Flame,         message: "Locked in — keep going.",        color: "#22c55e" },
+  paused:  { Icon: Pause,         message: "Paused. Pick it back up.",       color: "#f59e0b" },
+  done:    { Icon: CheckCircle2,  message: "Session complete. Nice work.",   color: "#f97316" },
 };
 
 export default function FocusTimer({ onSessionComplete }) {
@@ -34,10 +33,11 @@ export default function FocusTimer({ onSessionComplete }) {
   });
   const intervalRef = useRef(null);
 
-  const companion = done ? COMPANION_STATES.done
-    : running ? COMPANION_STATES.running
-    : timeLeft < preset.seconds ? COMPANION_STATES.paused
-    : COMPANION_STATES.idle;
+  const status = done ? TIMER_STATES.done
+    : running ? TIMER_STATES.running
+    : timeLeft < preset.seconds ? TIMER_STATES.paused
+    : TIMER_STATES.idle;
+  const StatusIcon = status.Icon;
 
   useEffect(() => {
     if (running && timeLeft > 0) {
@@ -87,7 +87,7 @@ export default function FocusTimer({ onSessionComplete }) {
         </div>
         <div>
           <h3 className="font-bold text-foreground">Focus Timer</h3>
-          <p className="text-xs text-muted-foreground">You work better when someone's watching</p>
+          <p className="text-xs text-muted-foreground">Block out distractions and train with intent</p>
         </div>
         {sessionsToday > 0 && (
           <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
@@ -116,7 +116,7 @@ export default function FocusTimer({ onSessionComplete }) {
         ))}
       </div>
 
-      {/* Timer ring + companion */}
+      {/* Timer ring */}
       <div className="flex flex-col items-center mb-6">
         <div className="relative" style={{ width: 160, height: 160 }}>
           <svg width="160" height="160" className="absolute inset-0 -rotate-90">
@@ -132,16 +132,16 @@ export default function FocusTimer({ onSessionComplete }) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl mb-1">{companion.emoji}</span>
+            <StatusIcon className="w-7 h-7 mb-1" style={{ color: status.color }} />
             <span className="text-2xl font-black text-foreground tabular-nums">
               {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
             </span>
-            <span className="text-xs font-semibold" style={{ color: companion.color }}>{preset.name}</span>
+            <span className="text-xs font-semibold" style={{ color: status.color }}>{preset.name}</span>
           </div>
         </div>
 
-        <p className="text-sm text-center mt-3 font-medium" style={{ color: companion.color }}>
-          {companion.message}
+        <p className="text-sm text-center mt-3 font-medium" style={{ color: status.color }}>
+          {status.message}
         </p>
       </div>
 
