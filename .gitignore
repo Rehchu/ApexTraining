@@ -38,3 +38,5 @@ dist-ssr
 *.sw?
 
 .env
+# Town Rep CLI runtime state (local streak data, not source)
+/data/townRep.state.json
