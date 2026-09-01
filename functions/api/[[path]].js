@@ -6,6 +6,8 @@
 //   env.PUBLIC_R2_URL  optional public base URL for the R2 bucket
 //   env.LLM_API_KEY / env.LLM_MODEL  optional Anthropic key to enable InvokeLLM
 
+import { parseFilterParam, ClientError } from '../../src/lib/filterParse.js';
+
 const enc = new TextEncoder();
 
 /* ------------------------------- helpers -------------------------------- */
@@ -1541,7 +1543,7 @@ export async function onRequest(context) {
 
       if (!id) {
         if (method === 'GET') {
-          const filter = url.searchParams.get('filter') ? JSON.parse(url.searchParams.get('filter')) : {};
+          const filter = parseFilterParam(url.searchParams.get('filter'));
           const sort = url.searchParams.get('sort') || undefined;
           const limit = url.searchParams.get('limit') || undefined;
           return json(await listEntities(env, type, { filter, sort, limit, user }));
@@ -1810,6 +1812,10 @@ export async function onRequest(context) {
 
     return err('Not found.', 404);
   } catch (e) {
+    // Bad client input (e.g. a malformed `filter` param) is a 400, not a 500.
+    if (e instanceof ClientError || e?.isClientError) {
+      return err(e.message, e.status || 400);
+    }
     return err(e.message || 'Server error', 500);
   }
 }
