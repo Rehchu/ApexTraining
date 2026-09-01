@@ -12,8 +12,10 @@ name: Deploy to Cloudflare Pages
 #
 # Until CLOUDFLARE_API_TOKEN exists this job skips green instead of failing red.
 #
-# FIRST RUN: the Pages project must already exist, or the deploy has nothing to
-# publish to. Create it once with
+# The Pages project must exist for the deploy to have somewhere to publish. The
+# README says the site is live at apextraining.dev, so it almost certainly does
+# already — check the Pages dashboard before running this, because it errors
+# on a duplicate name:
 #   npx wrangler pages project create apextraining --production-branch=main
 # The D1 database (apextraining) and R2 bucket (apextraining-files) named in
 # wrangler.jsonc already exist, so nothing else needs provisioning.
