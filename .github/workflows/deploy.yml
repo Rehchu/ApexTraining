@@ -1,0 +1,68 @@
+name: Deploy to Cloudflare Pages
+
+# ApexTraining is a Cloudflare PAGES project, not a Worker — wrangler.jsonc sets
+# pages_build_output_dir, so the deploy command is `pages deploy`, not `deploy`.
+# That distinction matters: `wrangler deploy` would fail here.
+#
+# Two repository secrets (Settings → Secrets and variables → Actions → New):
+#   CLOUDFLARE_API_TOKEN  — needs the "Cloudflare Pages — Edit" permission.
+#                           The plain "Edit Cloudflare Workers" template is NOT
+#                           enough for a Pages deploy.
+#   CLOUDFLARE_ACCOUNT_ID — f8622d4d3948b292b1069375575aa39a
+#
+# Until CLOUDFLARE_API_TOKEN exists this job skips green instead of failing red.
+#
+# The Pages project must exist for the deploy to have somewhere to publish. The
+# README says the site is live at apextraining.dev, so it almost certainly does
+# already — check the Pages dashboard before running this, because it errors
+# on a duplicate name:
+#   npx wrangler pages project create apextraining --production-branch=main
+# The D1 database (apextraining) and R2 bucket (apextraining-files) named in
+# wrangler.jsonc already exist, so nothing else needs provisioning.
+#
+# AUTH_SECRET and LLM_API_KEY stay as encrypted Pages environment variables in
+# the dashboard — they are not build inputs and must not appear here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: apextraining
+    runs-on: ubuntu-latest
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Skip (no Cloudflare token configured)
+        if: env.HAS_CF_TOKEN != 'true'
+        run: echo "CLOUDFLARE_API_TOKEN is not set — skipping the deploy, not failing it."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_CF_TOKEN == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF_TOKEN == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        if: env.HAS_CF_TOKEN == 'true'
+
+      # vite build writes ./dist, which is what pages_build_output_dir points at.
+      - name: Build
+        if: env.HAS_CF_TOKEN == 'true'
+        run: npm run build
+
+      # Pinned to match the wrangler this stack already uses elsewhere, so a new
+      # major cannot change deploy behaviour without someone choosing it.
+      - name: Deploy Pages
+        if: env.HAS_CF_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.121.0'
+          command: pages deploy --project-name=apextraining
