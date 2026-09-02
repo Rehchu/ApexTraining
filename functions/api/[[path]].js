@@ -165,6 +165,7 @@ function fieldExpr(field) {
 const SHARED_TYPES = new Set([
   'CommunityPost', 'TrainerCommunityPost', 'Recipe',
   'FitnessTemplate', 'MealPlanTemplate', 'WaitingList', 'BetaKey',
+  'CoachingExercise',
 ]);
 
 // Entity types that carry protected health information. Reads of these are
@@ -1238,6 +1239,7 @@ async function ensureSchema(env) {
   ];
   for (const s of stmts) await env.DB.prepare(s).run();
   await seedBetaKeys(env);
+  await seedCoachingContent(env);
   schemaReady = true;
 }
 
@@ -1276,6 +1278,362 @@ async function seedBetaKeys(env) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO entities (id, entity_type, data, created_by, created_date, updated_date) VALUES (?,?,?,?,?,?)`
     ).bind(k.id, 'BetaKey', JSON.stringify(data), 'system', now, now).run();
+  }
+}
+
+/* -------------------- coaching content (self-seeding) -------------------- */
+// A movement-pattern exercise catalog and a set of ready-to-ship program
+// templates, distilled from the owner's coaching references (COACHING-REFERENCE
+// §1-§5). Seeded as global, read-only content so every user shares one catalog.
+// Exercise names are the common vocabulary of the gym; nothing is copied from a
+// book. Each exercise carries the eight selection/substitution fields, and its
+// cues follow the eight cueing buckets — at least one is a stop-rule or ROM
+// limit (COACHING-REFERENCE §2). Every one of the seven movement patterns has a
+// bodyweight fallback so a user with no equipment never hits a dead end.
+const COACHING_EXERCISES = [
+  /* ---- Horizontal push (chest, front shoulder, triceps) ---- */
+  { name: 'Barbell Bench Press', pattern: 'horizontal_push', equipment: 'barbell',
+    primary_muscles: ['chest', 'front deltoid', 'triceps'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
+    regression: 'Push-up', progression: 'Load step — add a small increment once you hit the top of the rep range at your prescribed rest',
+    leverage_knob: 'Slow the lowering to a 3-count and pause on the chest',
+    cues: ['Tuck the elbows about 45 degrees with the wrists stacked over them', 'Keep the natural lower-back arch and pin the shoulder blades down and back', 'Stop the set when bar speed stalls or form breaks — leave 1-2 reps in the tank'] },
+  { name: 'Dumbbell Bench Press', pattern: 'horizontal_push', equipment: 'dumbbells',
+    primary_muscles: ['chest', 'front deltoid', 'triceps'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
+    regression: 'Floor press', progression: 'Add reps into the 8-12 range, then step the dumbbells up',
+    leverage_knob: 'Add a one-second pause at the bottom of each rep',
+    cues: ['Elbows tucked, forearms vertical at the bottom', 'Squeeze the chest for one second at the top', 'Lower only as deep as you can without the shoulders rolling forward'] },
+  { name: 'Incline Dumbbell Press', pattern: 'horizontal_push', equipment: 'dumbbells, bench',
+    primary_muscles: ['upper chest', 'front deltoid', 'triceps'], joint_tags: ['shoulder'], unilateral: false,
+    regression: 'Incline push-up', progression: 'Total-rep target at a fixed load, then raise the load',
+    leverage_knob: 'Turn the palms to face each other to spare the shoulder',
+    cues: ['Set a slight incline and keep the ribs down', 'Press up and slightly back over the collarbones', 'Stop lowering the moment the front of the shoulder complains'] },
+  { name: 'Push-Up', pattern: 'horizontal_push', equipment: 'bodyweight',
+    primary_muscles: ['chest', 'front deltoid', 'triceps', 'core'], joint_tags: ['shoulder', 'elbow', 'wrist'], unilateral: false,
+    regression: 'Incline push-up with the hands elevated', progression: 'Elevate the feet or slow the tempo before adding a weighted vest',
+    leverage_knob: 'Elevate the feet to shift more load onto the chest and shoulders',
+    cues: ['Brace the abs and squeeze the glutes so the body is one straight line', 'Elbows tucked to about 45 degrees, not flared wide', 'Stop the set when the hips sag or you lose full depth'] },
+  { name: 'Machine Chest Press', pattern: 'horizontal_push', equipment: 'machine',
+    primary_muscles: ['chest', 'front deltoid', 'triceps'], joint_tags: [], unilateral: false,
+    regression: 'Lighten the stack and slow the tempo', progression: 'Load step on the stack',
+    leverage_knob: 'Pause at full stretch before pressing',
+    cues: ['Set the seat so the handles line up with mid-chest', 'Press smoothly without locking out hard', 'Let the handles come back only as far as the shoulders stay comfortable'] },
+  { name: 'Dip', pattern: 'horizontal_push', equipment: 'dip bars, bodyweight',
+    primary_muscles: ['lower chest', 'triceps', 'front deltoid'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
+    regression: 'Bench dip or band-assisted dip', progression: 'Add reps, then hang a little weight from a belt',
+    leverage_knob: 'Lean the torso forward to bias the chest',
+    cues: ['Keep the shoulders down away from the ears', 'Brace the abs and stay tall through the trunk', 'Descend only until the upper arms reach parallel — no deeper'] },
+
+  /* ---- Vertical push (shoulders, triceps, upper chest) ---- */
+  { name: 'Barbell Overhead Press', pattern: 'vertical_push', equipment: 'barbell',
+    primary_muscles: ['shoulders', 'triceps', 'upper chest'], joint_tags: ['shoulder', 'lower back'], unilateral: false,
+    regression: 'Seated dumbbell shoulder press', progression: 'Load step; add a work-up single slightly above the top set',
+    leverage_knob: 'Press strictly with no leg drive and pause at the forehead',
+    cues: ['Brace the abs and squeeze the glutes so the ribs stay down', 'Press in a straight line and finish with the bar stacked over the mid-foot', 'Stop the set if the lower back arches to move the weight'] },
+  { name: 'Seated Dumbbell Shoulder Press', pattern: 'vertical_push', equipment: 'dumbbells',
+    primary_muscles: ['shoulders', 'triceps'], joint_tags: ['shoulder'], unilateral: false,
+    regression: 'Landmine press', progression: 'Total-rep target, then raise the load',
+    leverage_knob: 'Use a neutral (palms-in) grip to spare the shoulder',
+    cues: ['Sit tall with the lower back supported and ribs down', 'Press up and slightly in without banging the dumbbells', 'Lower only to ear height, then stop if the shoulder pinches'] },
+  { name: 'Landmine Press', pattern: 'vertical_push', equipment: 'barbell, landmine',
+    primary_muscles: ['shoulders', 'upper chest', 'triceps'], joint_tags: [], unilateral: true,
+    regression: 'Half-kneeling landmine press', progression: 'Load step, then progress toward a standing strict press',
+    leverage_knob: 'Press from a half-kneeling stance to remove the leg drive',
+    cues: ['Brace the abs so the low back does not arch', 'Press the bar up along its arc and reach tall', 'Keep the shoulders square — stop if either side starts to twist'] },
+  { name: 'Pike Push-Up', pattern: 'vertical_push', equipment: 'bodyweight',
+    primary_muscles: ['shoulders', 'triceps', 'upper chest'], joint_tags: ['shoulder', 'wrist'], unilateral: false,
+    regression: 'Wall press or feet-lower pike push-up', progression: 'Elevate the feet toward a wall handstand as strength grows',
+    leverage_knob: 'Elevate the feet to raise the load on the shoulders',
+    cues: ['Hips high, body in an inverted V', 'Lower the crown of the head toward the floor under control', 'Stop before the neck or shoulders take the load — end the set there'] },
+  { name: 'Half-Kneeling Dumbbell Press', pattern: 'vertical_push', equipment: 'dumbbell',
+    primary_muscles: ['shoulders', 'triceps'], joint_tags: ['shoulder'], unilateral: true,
+    regression: 'Seated dumbbell shoulder press', progression: 'Load step per arm',
+    leverage_knob: 'Slow the lowering to a 3-count',
+    cues: ['Tuck the pelvis slightly and brace so the ribs stay down', 'Press straight up over the shoulder', 'Keep the hips level and square — stop if you have to lean to finish a rep'] },
+
+  /* ---- Horizontal pull (mid-back, rear shoulder, biceps) ---- */
+  { name: 'Barbell Bent-Over Row', pattern: 'horizontal_pull', equipment: 'barbell',
+    primary_muscles: ['mid-back', 'lats', 'rear deltoid', 'biceps'], joint_tags: ['lower back'], unilateral: false,
+    regression: 'Chest-supported dumbbell row', progression: 'Load step while keeping the torso angle fixed',
+    leverage_knob: 'Pause the bar at the ribs for a one-count each rep',
+    cues: ['Keep the natural lower-back arch — never round the spine to lift', 'Pull the bar to the lower ribs and squeeze the shoulder blades together', 'Stop the set the moment the back rounds or the torso starts swinging'] },
+  { name: 'One-Arm Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbell, bench',
+    primary_muscles: ['lats', 'mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: true,
+    regression: 'Chest-supported dumbbell row', progression: 'Total-rep target per side, then raise the load',
+    leverage_knob: 'Pause at the top and lower on a 3-count',
+    cues: ['Brace the free hand and keep the spine long and neutral', 'Drive the elbow back toward the hip, squeezing the shoulder blade', 'Keep the hips and shoulders square — stop if the torso rotates to finish a rep'] },
+  { name: 'Chest-Supported Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbells, incline bench',
+    primary_muscles: ['mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: false,
+    regression: 'Seated cable row', progression: 'Volume ramp — add a set every 1-2 weeks',
+    leverage_knob: 'Pause and squeeze at the top of every rep',
+    cues: ['Let the bench take the spine so the lower back is out of it', 'Row both dumbbells to the ribs and pinch the shoulder blades', 'Lower fully but stop the set when you can no longer pause at the top'] },
+  { name: 'Inverted Row', pattern: 'horizontal_pull', equipment: 'bodyweight, bar or suspension trainer',
+    primary_muscles: ['mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: false,
+    regression: 'Raise the bar higher or bend the knees', progression: 'Lower the bar or elevate the feet to steepen the angle',
+    leverage_knob: 'Elevate the feet and lengthen the body angle',
+    cues: ['Brace the abs and squeeze the glutes so the body stays a straight line', 'Pull the chest to the bar and squeeze the shoulder blades', 'Stop when the hips drop or you can no longer reach the bar with control'] },
+  { name: 'Seated Cable Row', pattern: 'horizontal_pull', equipment: 'cable machine',
+    primary_muscles: ['mid-back', 'lats', 'biceps'], joint_tags: [], unilateral: false,
+    regression: 'Band row', progression: 'Load step on the stack',
+    leverage_knob: 'Pause for a one-count with the handle at the stomach',
+    cues: ['Sit tall and keep the chest up without leaning back hard', 'Pull to the stomach and drive the elbows past the ribs', 'Let the weight stretch you forward only as far as the back stays flat'] },
+  { name: 'Face Pull', pattern: 'horizontal_pull', equipment: 'cable, band',
+    primary_muscles: ['rear deltoid', 'mid-back', 'rotator cuff'], joint_tags: [], unilateral: false,
+    regression: 'Band pull-apart', progression: 'Add reps into the 15-20 range, then a small load step',
+    leverage_knob: 'Pause with the hands beside the ears',
+    cues: ['Pull the rope toward the eyes, splitting the hands apart', 'Lead with the elbows high and squeeze the rear shoulders', 'Keep it light and stop short of any shoulder pinch — this is protective volume'] },
+
+  /* ---- Vertical pull (lats, biceps, forearms) ---- */
+  { name: 'Pull-Up', pattern: 'vertical_pull', equipment: 'pull-up bar, bodyweight',
+    primary_muscles: ['lats', 'biceps', 'forearms'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
+    regression: 'Band-assisted pull-up or lat pulldown', progression: 'Add reps, then hang a little weight from a belt',
+    leverage_knob: 'Pause at the top and lower on a 3-count',
+    cues: ['Start from a full hang and pull the chest toward the bar', 'Drive the elbows down and squeeze the lats — do not just bend the arms', 'Stop the set when you can no longer clear the bar with control'] },
+  { name: 'Chin-Up', pattern: 'vertical_pull', equipment: 'pull-up bar, bodyweight',
+    primary_muscles: ['lats', 'biceps', 'forearms'], joint_tags: ['elbow', 'shoulder'], unilateral: false,
+    regression: 'Band-assisted chin-up', progression: 'Add reps, then add weight from a belt',
+    leverage_knob: 'Pause at the top for a one-count',
+    cues: ['Palms facing you, start from a full hang', 'Lead with the chest and drive the elbows to the ribs', 'Stop when the reps break down — do not kip to finish'] },
+  { name: 'Lat Pulldown', pattern: 'vertical_pull', equipment: 'machine',
+    primary_muscles: ['lats', 'biceps'], joint_tags: ['shoulder'], unilateral: false,
+    regression: 'Band lat pulldown', progression: 'Load step on the stack',
+    leverage_knob: 'Pause with the bar at the collarbone each rep',
+    cues: ['Sit tall and set the shoulders down before pulling', 'Pull the bar to the collarbone and squeeze the lats', 'Pull only to the collarbone — never behind the neck'] },
+  { name: 'Neutral-Grip Lat Pulldown', pattern: 'vertical_pull', equipment: 'machine',
+    primary_muscles: ['lats', 'biceps'], joint_tags: [], unilateral: false,
+    regression: 'Band lat pulldown', progression: 'Load step on the stack',
+    leverage_knob: 'Slow the return to a 3-count',
+    cues: ['Use the palms-facing handle to spare the shoulders and elbows', 'Drive the elbows down toward the hips', 'Control the bar up and stop the set when the lats stop doing the work'] },
+  { name: 'Band Lat Pulldown', pattern: 'vertical_pull', equipment: 'band',
+    primary_muscles: ['lats', 'biceps'], joint_tags: [], unilateral: false,
+    regression: 'Shorten the band or step closer to the anchor', progression: 'Use a thicker band or add a pause; then progress to pull-ups',
+    leverage_knob: 'Add a one-second squeeze at the bottom',
+    cues: ['Anchor the band overhead and set the shoulders down', 'Pull the elbows to the ribs and squeeze the lats', 'Return under control and stop when you can no longer pause at the bottom'] },
+
+  /* ---- Squat (quads, glutes, trunk) ---- */
+  { name: 'Back Squat', pattern: 'squat', equipment: 'barbell',
+    primary_muscles: ['quads', 'glutes', 'adductors', 'trunk'], joint_tags: ['knee', 'lower back'], unilateral: false,
+    regression: 'Goblet squat', progression: 'Load step; add a paused rep at the bottom',
+    leverage_knob: 'Pause two seconds at the bottom of each rep',
+    cues: ['Brace the abs and hold the natural lower-back arch throughout', 'Track the knees out over the toes, not caving in', 'Descend as deep as you can without the pelvis tucking under — stop there'] },
+  { name: 'Front Squat', pattern: 'squat', equipment: 'barbell',
+    primary_muscles: ['quads', 'glutes', 'trunk'], joint_tags: ['knee'], unilateral: false,
+    regression: 'Goblet squat', progression: 'Load step while keeping the torso upright',
+    leverage_knob: 'Pause at the bottom before driving up',
+    cues: ['Keep the elbows high so the bar stays on the shoulders', 'Stay tall through the chest and brace hard', 'Sink only as low as the torso stays upright, then drive the floor away'] },
+  { name: 'Goblet Squat', pattern: 'squat', equipment: 'kettlebell or dumbbell',
+    primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: false,
+    regression: 'Box squat to a target', progression: 'Load step, then graduate to a barbell squat',
+    leverage_knob: 'Pause at the bottom and pry the knees out',
+    cues: ['Hold the weight at the chest and keep the elbows inside the knees', 'Sit down between the hips with the chest up', 'Go as deep as you can hold the arch, then stand — stop if the low back rounds'] },
+  { name: 'Bulgarian Split Squat', pattern: 'squat', equipment: 'dumbbells, bench',
+    primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: true,
+    regression: 'Bodyweight split squat', progression: 'Load step per leg, then a slow-tempo variation',
+    leverage_knob: 'Slow the descent to a 3-count and pause at the bottom',
+    cues: ['Set the rear foot on the bench and stay tall through the torso', 'Drop the back knee straight down, front knee tracking over the foot', 'Descend only as far as balance and the front knee stay comfortable'] },
+  { name: 'Bodyweight Squat', pattern: 'squat', equipment: 'bodyweight',
+    primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: false,
+    regression: 'Box or chair squat to a target', progression: 'Slow the tempo, then move toward a single-leg progression',
+    leverage_knob: 'Slow the descent and pause at the bottom, or shift to one leg',
+    cues: ['Track the knees over the toes and drive the floor away through the heels', 'Keep the chest up and the lower-back arch — do not round at the bottom', 'Squat only as deep as you can hold the arch, then stand'] },
+  { name: 'Leg Press', pattern: 'squat', equipment: 'machine',
+    primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: false,
+    regression: 'Lighten the load and shorten the range', progression: 'Load step on the sled',
+    leverage_knob: 'Pause at the bottom of each rep',
+    cues: ['Set the feet mid-platform and keep the whole back on the pad', 'Push through the mid-foot and avoid locking the knees hard', 'Lower only until the lower back starts to round off the pad — stop there'] },
+  { name: 'Reverse Lunge', pattern: 'squat', equipment: 'bodyweight or dumbbells',
+    primary_muscles: ['quads', 'glutes', 'hamstrings'], joint_tags: ['knee'], unilateral: true,
+    regression: 'Bodyweight reverse lunge to a short range', progression: 'Add load, then progress to a deficit or slow tempo',
+    leverage_knob: 'Slow the lowering and pause at the bottom',
+    cues: ['Step straight back and lower the back knee toward the floor', 'Keep the front knee tracking over the foot and the torso tall', 'Stop the set when balance or knee tracking breaks down'] },
+
+  /* ---- Hinge (hamstrings, glutes, back) ---- */
+  { name: 'Conventional Deadlift', pattern: 'hinge', equipment: 'barbell',
+    primary_muscles: ['hamstrings', 'glutes', 'back', 'trunk'], joint_tags: ['lower back'], unilateral: false,
+    regression: 'Romanian deadlift or kettlebell deadlift', progression: 'Load step; back off one set before a heavy top set',
+    leverage_knob: 'Pause the bar just below the knee on the way up',
+    cues: ['Set the natural lower-back arch and brace before the bar leaves the floor', 'Drive the feet into the floor and push the hips through — do not yank with the back', 'Stop the set the instant the lower back rounds'] },
+  { name: 'Romanian Deadlift', pattern: 'hinge', equipment: 'barbell or dumbbells',
+    primary_muscles: ['hamstrings', 'glutes', 'back'], joint_tags: ['lower back'], unilateral: false,
+    regression: 'Kettlebell deadlift', progression: 'Load step while keeping the bar path against the legs',
+    leverage_knob: 'Slow the lowering to a 3-count',
+    cues: ['Soft knees, push the hips back and keep the bar against the legs', 'Hold the natural arch and brace the abs', 'Lower only until you feel the hamstring stretch without rounding — then stand'] },
+  { name: 'Kettlebell Swing', pattern: 'hinge', equipment: 'kettlebell',
+    primary_muscles: ['glutes', 'hamstrings', 'back'], joint_tags: ['lower back'], unilateral: false,
+    regression: 'Kettlebell deadlift to groove the hinge', progression: 'Load step, then density (more quality swings in a fixed window)',
+    leverage_knob: 'Add a crisp float-and-hike each rep',
+    cues: ['Hinge at the hips, not a squat — the bell floats from hip snap', 'Snap the hips forward and squeeze the glutes at the top', 'Keep the spine neutral and stop the set when the hinge gets sloppy'] },
+  { name: 'Barbell Hip Thrust', pattern: 'hinge', equipment: 'barbell, bench',
+    primary_muscles: ['glutes', 'hamstrings'], joint_tags: [], unilateral: false,
+    regression: 'Bodyweight glute bridge', progression: 'Load step; add a paused rep at the top',
+    leverage_knob: 'Pause and squeeze for two seconds at the top',
+    cues: ['Ribs down and chin tucked, drive through the heels', 'Squeeze the glutes to lift the hips level with the knees', 'Do not overextend at the top — stop the rep once the hips are level'] },
+  { name: 'Single-Leg Romanian Deadlift', pattern: 'hinge', equipment: 'dumbbell',
+    primary_muscles: ['hamstrings', 'glutes'], joint_tags: ['lower back'], unilateral: true,
+    regression: 'Hold a support for balance', progression: 'Load step per leg, then remove the support',
+    leverage_knob: 'Slow the lowering and pause at the bottom',
+    cues: ['Hinge at the hip with a soft knee, back leg reaching straight behind', 'Keep the hips square to the floor and the spine long', 'Lower only as far as the back stays flat and hips stay level'] },
+  { name: 'Glute Bridge', pattern: 'hinge', equipment: 'bodyweight',
+    primary_muscles: ['glutes', 'hamstrings'], joint_tags: [], unilateral: false,
+    regression: 'Two-count hold at the top of each rep', progression: 'Move to one leg, then a weighted hip thrust',
+    leverage_knob: 'Shift to a single leg to double the load',
+    cues: ['Squeeze the glutes to lift and keep the ribs down — do not arch the low back', 'Drive through the heels', 'Stop short of any lower-back pinch; finish with the hips level with the knees'] },
+
+  /* ---- Carry / core-brace (trunk, grip, whole body) ---- */
+  { name: 'Farmer Carry', pattern: 'carry_core', equipment: 'dumbbells or kettlebells',
+    primary_muscles: ['trunk', 'grip', 'traps', 'whole body'], joint_tags: [], unilateral: false,
+    regression: 'Shorter distance with a lighter load', progression: 'Add load or distance each week',
+    leverage_knob: 'Slow the pace and lengthen the distance',
+    cues: ['Stand tall with the ribs down and the abs braced', 'Keep the shoulders square and level — do not lean', 'Stop the set when posture breaks or the grip starts to fail'] },
+  { name: 'Suitcase Carry', pattern: 'carry_core', equipment: 'dumbbell or kettlebell',
+    primary_muscles: ['obliques', 'trunk', 'grip'], joint_tags: [], unilateral: true,
+    regression: 'Shorter distance with a lighter load', progression: 'Add load or distance per side',
+    leverage_knob: 'Slow the pace to resist the lean longer',
+    cues: ['Load one hand and brace hard against the pull', 'Keep the hips level and the shoulders square — do not lean toward the weight', 'Stop the set the moment the torso tips sideways'] },
+  { name: 'Plank', pattern: 'carry_core', equipment: 'bodyweight',
+    primary_muscles: ['trunk', 'shoulders'], joint_tags: [], unilateral: false,
+    regression: 'Plank from the knees', progression: 'Extend the hold, then add a limb reach',
+    leverage_knob: 'Elevate the feet or add a slow limb reach',
+    cues: ['Brace the abs and squeeze the glutes — one straight line from head to heels', 'Keep the hips level, no sagging or piking', 'End the hold the moment the hips drop — quality over time'] },
+  { name: 'Dead Bug', pattern: 'carry_core', equipment: 'bodyweight',
+    primary_muscles: ['trunk'], joint_tags: [], unilateral: false,
+    regression: 'Move only the arms or only the legs', progression: 'Add a light weight or a longer reach',
+    leverage_knob: 'Slow every rep to a 3-count',
+    cues: ['Press the lower back flat to the floor before you move', 'Extend the opposite arm and leg slowly while keeping the ribs down', 'Stop the rep if the lower back lifts off the floor'] },
+  { name: 'Side Plank', pattern: 'carry_core', equipment: 'bodyweight',
+    primary_muscles: ['obliques', 'trunk'], joint_tags: [], unilateral: true,
+    regression: 'Side plank from the knee', progression: 'Extend the hold, then add a top-leg raise',
+    leverage_knob: 'Stack the feet or add a top-leg raise',
+    cues: ['Stack the shoulder over the elbow and brace the side of the trunk', 'Lift the hips so the body is one straight line', 'End the hold when the hips start to sag toward the floor'] },
+  { name: 'Pallof Press', pattern: 'carry_core', equipment: 'cable or band',
+    primary_muscles: ['obliques', 'trunk'], joint_tags: [], unilateral: false,
+    regression: 'Step closer to the anchor to reduce the pull', progression: 'Add tension, then a longer hold at full reach',
+    leverage_knob: 'Hold at full extension for a longer count',
+    cues: ['Stand side-on to the anchor and brace the abs', 'Press the handle straight out and resist the twist', 'Stop the set when you can no longer keep the hips and shoulders square'] },
+];
+
+// Four standard program structures (COACHING-REFERENCE §4), with reps and rests
+// drawn from the goal → parameter table (§5). Shape mirrors FitnessTemplate /
+// WorkoutPlan so the Templates tab and WorkoutForm render them unchanged.
+const COACHING_TEMPLATES = [
+  {
+    name: 'Beginner Full-Body (3-Day)',
+    category: 'full_body',
+    difficulty: 'beginner',
+    duration_weeks: 6,
+    days_per_week: 3,
+    mesocycle_phase: 'general',
+    description: 'The default for anyone new or short on time: three full-body sessions on non-consecutive days. Variety comes from rotating the rep scheme across the week (heavy, moderate, higher-rep), not from new exercises. Progression is a load step on the main lift — if you miss the target reps two sessions running, drop the load 5-10% and climb again.',
+    exercises: [
+      { day: 1, name: 'Goblet Squat', sets: 3, reps: '5', target_rir: 2, rest_seconds: 150, notes: 'Heavy day. Work up to a tough set of 5.' },
+      { day: 1, name: 'Dumbbell Bench Press', sets: 3, reps: '5', target_rir: 2, rest_seconds: 150, notes: 'Elbows tucked; leave 1-2 reps in the tank.' },
+      { day: 1, name: 'One-Arm Dumbbell Row', sets: 3, reps: '6', target_rir: 2, rest_seconds: 120, notes: 'Per side. Keep the torso square.' },
+      { day: 1, name: 'Plank', sets: 3, reps: '30-45s', target_rir: 2, rest_seconds: 60, notes: 'Brace hard; end the hold when the hips drop.' },
+      { day: 2, name: 'Romanian Deadlift', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 120, notes: 'Moderate day. Lower to the hamstring stretch, no rounding.' },
+      { day: 2, name: 'Seated Dumbbell Shoulder Press', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 90, notes: 'Ribs down; press to ear height.' },
+      { day: 2, name: 'Lat Pulldown', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 90, notes: 'To the collarbone, never behind the neck.' },
+      { day: 2, name: 'Farmer Carry', sets: 3, reps: '40m', target_rir: 2, rest_seconds: 60, notes: 'Tall and braced; stop when the grip fails.' },
+      { day: 3, name: 'Bodyweight Squat', sets: 3, reps: '12-15', target_rir: 2, rest_seconds: 75, notes: 'Higher-rep day. Control the depth.' },
+      { day: 3, name: 'Push-Up', sets: 3, reps: '12-15', target_rir: 2, rest_seconds: 75, notes: 'One straight line; stop when the hips sag.' },
+      { day: 3, name: 'Inverted Row', sets: 3, reps: '12-15', target_rir: 2, rest_seconds: 75, notes: 'Chest to the bar; raise the bar to regress.' },
+      { day: 3, name: 'Dead Bug', sets: 3, reps: '10', target_rir: 2, rest_seconds: 45, notes: 'Per side. Keep the low back flat.' },
+    ],
+  },
+  {
+    name: 'Upper / Lower Split (4-Day)',
+    category: 'upper_lower',
+    difficulty: 'intermediate',
+    duration_weeks: 6,
+    days_per_week: 4,
+    mesocycle_phase: 'hypertrophy',
+    description: 'The first split, once a beginner has about 12 logged weeks. Each day still covers a push and a pull (upper) or a squat and a hinge (lower), and the pull-to-push balance check runs weekly. Hypertrophy defaults: moderate reps, 60-90s rest, sets stopped shy of failure.',
+    exercises: [
+      { day: 1, name: 'Barbell Bench Press', sets: 4, reps: '6-8', target_rir: 2, rest_seconds: 120, notes: 'Upper A.' },
+      { day: 1, name: 'Barbell Bent-Over Row', sets: 4, reps: '6-8', target_rir: 2, rest_seconds: 120, notes: 'Match rows to presses for balance.' },
+      { day: 1, name: 'Seated Dumbbell Shoulder Press', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 90, notes: '' },
+      { day: 1, name: 'Neutral-Grip Lat Pulldown', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 90, notes: '' },
+      { day: 1, name: 'Face Pull', sets: 3, reps: '15-20', target_rir: 3, rest_seconds: 60, notes: 'Protective rear-shoulder volume.' },
+      { day: 2, name: 'Back Squat', sets: 4, reps: '6-8', target_rir: 2, rest_seconds: 150, notes: 'Lower A.' },
+      { day: 2, name: 'Romanian Deadlift', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 120, notes: '' },
+      { day: 2, name: 'Bulgarian Split Squat', sets: 3, reps: '10', target_rir: 2, rest_seconds: 90, notes: 'Per leg.' },
+      { day: 2, name: 'Plank', sets: 3, reps: '45s', target_rir: 2, rest_seconds: 60, notes: '' },
+      { day: 3, name: 'Incline Dumbbell Press', sets: 4, reps: '8-10', target_rir: 2, rest_seconds: 90, notes: 'Upper B.' },
+      { day: 3, name: 'One-Arm Dumbbell Row', sets: 4, reps: '10', target_rir: 2, rest_seconds: 90, notes: 'Per side.' },
+      { day: 3, name: 'Pull-Up', sets: 3, reps: '6-10', target_rir: 2, rest_seconds: 90, notes: 'Band-assist if needed.' },
+      { day: 3, name: 'Pallof Press', sets: 3, reps: '12', target_rir: 3, rest_seconds: 45, notes: 'Per side.' },
+      { day: 4, name: 'Conventional Deadlift', sets: 4, reps: '5', target_rir: 2, rest_seconds: 180, notes: 'Lower B. Back off one set before a heavy top set.' },
+      { day: 4, name: 'Front Squat', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 120, notes: '' },
+      { day: 4, name: 'Barbell Hip Thrust', sets: 3, reps: '12', target_rir: 2, rest_seconds: 75, notes: 'Do not overextend at the top.' },
+      { day: 4, name: 'Farmer Carry', sets: 3, reps: '40m', target_rir: 2, rest_seconds: 60, notes: '' },
+    ],
+  },
+  {
+    name: 'Push / Pull / Legs (3-Day)',
+    category: 'push_pull_legs',
+    difficulty: 'intermediate',
+    duration_weeks: 6,
+    days_per_week: 3,
+    mesocycle_phase: 'hypertrophy',
+    description: 'For the intermediate who wants body-part emphasis while still obeying the balance rule. Run it 3 days for a lighter week or 6 days (repeating the rotation) for more volume — never place two heavy sessions that share a muscle on consecutive days. Hypertrophy defaults: moderate reps, 60-90s rest.',
+    exercises: [
+      { day: 1, name: 'Barbell Bench Press', sets: 4, reps: '6-8', target_rir: 2, rest_seconds: 120, notes: 'Push day.' },
+      { day: 1, name: 'Seated Dumbbell Shoulder Press', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 90, notes: '' },
+      { day: 1, name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 90, notes: '' },
+      { day: 1, name: 'Dip', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 75, notes: 'Bench or band-assist to regress.' },
+      { day: 2, name: 'Pull-Up', sets: 4, reps: '6-10', target_rir: 2, rest_seconds: 120, notes: 'Pull day. Band-assist if needed.' },
+      { day: 2, name: 'Barbell Bent-Over Row', sets: 4, reps: '8-10', target_rir: 2, rest_seconds: 120, notes: '' },
+      { day: 2, name: 'Lat Pulldown', sets: 3, reps: '10-12', target_rir: 2, rest_seconds: 90, notes: '' },
+      { day: 2, name: 'Face Pull', sets: 3, reps: '15-20', target_rir: 3, rest_seconds: 60, notes: 'Rear-shoulder health.' },
+      { day: 3, name: 'Back Squat', sets: 4, reps: '6-8', target_rir: 2, rest_seconds: 150, notes: 'Legs day.' },
+      { day: 3, name: 'Romanian Deadlift', sets: 3, reps: '8-10', target_rir: 2, rest_seconds: 120, notes: '' },
+      { day: 3, name: 'Bulgarian Split Squat', sets: 3, reps: '10', target_rir: 2, rest_seconds: 90, notes: 'Per leg.' },
+      { day: 3, name: 'Kettlebell Swing', sets: 3, reps: '15', target_rir: 3, rest_seconds: 60, notes: 'Explosive hip snap.' },
+      { day: 3, name: 'Plank', sets: 3, reps: '45s', target_rir: 2, rest_seconds: 45, notes: '' },
+    ],
+  },
+  {
+    name: 'Recomposition Circuit (3-Day)',
+    category: 'recomposition',
+    difficulty: 'intermediate',
+    duration_weeks: 6,
+    days_per_week: 3,
+    mesocycle_phase: 'general',
+    description: 'Moderate reps paired upper-with-lower or push-with-pull, rests kept under a minute so rising lactate drives the hormonal response. Progression is rest compression — trim a few seconds off the rest every couple of weeks. Note: long slow cardio is not the efficient fat-loss tool here; circuits and intervals are. Adjacent pairs never share a primary muscle.',
+    exercises: [
+      { day: 1, name: 'Goblet Squat', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Circuit A — pair with the push-up.' },
+      { day: 1, name: 'Push-Up', sets: 3, reps: '12-15', target_rir: 3, rest_seconds: 30, notes: 'Non-competing pair (lower + push).' },
+      { day: 1, name: 'Romanian Deadlift', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Pair with the row.' },
+      { day: 1, name: 'One-Arm Dumbbell Row', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Per side. Hinge + pull pairing.' },
+      { day: 1, name: 'Farmer Carry', sets: 3, reps: '40m', target_rir: 3, rest_seconds: 45, notes: 'Finisher.' },
+      { day: 2, name: 'Reverse Lunge', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Circuit B. Per leg.' },
+      { day: 2, name: 'Seated Dumbbell Shoulder Press', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Lower + push pairing.' },
+      { day: 2, name: 'Barbell Hip Thrust', sets: 3, reps: '12-15', target_rir: 3, rest_seconds: 30, notes: 'Pair with the pulldown.' },
+      { day: 2, name: 'Lat Pulldown', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Hinge + pull pairing.' },
+      { day: 2, name: 'Pallof Press', sets: 3, reps: '12', target_rir: 3, rest_seconds: 45, notes: 'Per side. Core finisher.' },
+      { day: 3, name: 'Bulgarian Split Squat', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Circuit C. Per leg.' },
+      { day: 3, name: 'Incline Dumbbell Press', sets: 3, reps: '12', target_rir: 3, rest_seconds: 30, notes: 'Lower + push pairing.' },
+      { day: 3, name: 'Kettlebell Swing', sets: 3, reps: '15', target_rir: 3, rest_seconds: 30, notes: 'Pair with the inverted row.' },
+      { day: 3, name: 'Inverted Row', sets: 3, reps: '12-15', target_rir: 3, rest_seconds: 30, notes: 'Hinge + pull pairing.' },
+      { day: 3, name: 'Side Plank', sets: 3, reps: '30s', target_rir: 3, rest_seconds: 45, notes: 'Per side. Core finisher.' },
+    ],
+  },
+];
+
+const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+// Idempotent, migration-free seed run on boot (INSERT OR IGNORE with
+// deterministic ids), mirroring seedBetaKeys. Global content, so created_by is
+// the same 'system' value the other boot seeds use.
+async function seedCoachingContent(env) {
+  const now = nowISO();
+  for (const ex of COACHING_EXERCISES) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO entities (id, entity_type, data, created_by, created_date, updated_date) VALUES (?,?,?,?,?,?)`
+    ).bind(`cex_${slugify(ex.name)}`, 'CoachingExercise', JSON.stringify(ex), 'system', now, now).run();
+  }
+  for (const tpl of COACHING_TEMPLATES) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO entities (id, entity_type, data, created_by, created_date, updated_date) VALUES (?,?,?,?,?,?)`
+    ).bind(`ftpl_${slugify(tpl.name)}`, 'FitnessTemplate', JSON.stringify(tpl), 'system', now, now).run();
   }
 }
 
