@@ -636,6 +636,243 @@ async function runFunction(name, payload, ctx) {
       return { data: out?.data || [] };
     }
 
+    /* ---- Program Generation ---- */
+    case 'generateProgram': {
+      // Dynamic program builder following PROGRAMMING-PRINCIPLES.md rules
+      // Inputs: goal, days_per_week, experience_level, equipment_available, constraints
+      const {
+        goal = 'hypertrophy',           // strength | hypertrophy | recomposition | conditioning
+        days_per_week = 3,
+        experience_level = 'beginner',  // beginner | intermediate
+        equipment_available = ['barbell', 'dumbbell', 'bodyweight'],
+        constraints = {},               // { avoid_joints: ['shoulder'], time_per_session: 45, ... }
+        name = 'Custom Program'
+      } = payload || {};
+
+      // PROGRAMMING-PRINCIPLES §3: Structuring a week
+      // 3 days or fewer → full-body. 4 → upper/lower. 5+ → same with conditioning
+      let category = 'full_body';
+      let split_type = 'full_body';
+      if (days_per_week === 4) {
+        category = 'upper_lower';
+        split_type = 'upper_lower';
+      } else if (days_per_week >= 5) {
+        category = 'upper_lower';
+        split_type = 'upper_lower_conditioning';
+      }
+
+      // PROGRAMMING-PRINCIPLES §8: Goal → parameters
+      const goalParams = {
+        strength: { reps: '3-5', sets: 4, rest: 180, rir: 1, progression: 'load_step' },
+        hypertrophy: { reps: '8-12', sets: 3, rest: 90, rir: 2, progression: 'volume_ramp' },
+        recomposition: { reps: '10-15', sets: 3, rest: 45, rir: 3, progression: 'rest_compression' },
+        conditioning: { reps: '12-20', sets: 3, rest: 30, rir: 3, progression: 'density' },
+      };
+      const params = goalParams[goal] || goalParams.hypertrophy;
+
+      // Fetch all seeded coaching exercises
+      const allExercises = COACHING_EXERCISES;
+
+      // Filter by equipment availability
+      const availableExercises = allExercises.filter(ex =>
+        equipment_available.includes(ex.equipment)
+      );
+
+      // Filter by joint constraints (PROGRAMMING-PRINCIPLES §6)
+      const avoidJoints = constraints.avoid_joints || [];
+      const safeExercises = availableExercises.filter(ex => {
+        if (!avoidJoints.length) return true;
+        return !ex.joint_tags.some(joint => avoidJoints.includes(joint));
+      });
+
+      // Helper: select best exercise from pattern
+      const selectExercise = (pattern, used = []) => {
+        const candidates = safeExercises.filter(ex =>
+          ex.pattern === pattern && !used.includes(ex.name)
+        );
+        if (!candidates.length) return null;
+
+        // Prefer compound movements (more primary muscles)
+        candidates.sort((a, b) => b.primary_muscles.length - a.primary_muscles.length);
+        return candidates[0];
+      };
+
+      const program_exercises = [];
+      const usedExercises = [];
+
+      if (split_type === 'full_body') {
+        // PROGRAMMING-PRINCIPLES §3: Full-body on non-consecutive days
+        // COACHING-REFERENCE §4: Beginner template with rotating rep schemes
+        const schemes = [
+          { day: 1, reps: '5', rest: 150, feel: 'heavy' },
+          { day: 2, reps: '8-10', rest: 120, feel: 'moderate' },
+          { day: 3, reps: '12-15', rest: 75, feel: 'higher-rep' },
+        ];
+
+        for (let i = 0; i < days_per_week; i++) {
+          const scheme = schemes[i] || schemes[0];
+          const day = i + 1;
+
+          // PROGRAMMING-PRINCIPLES §1: Cover push, pull, lower (squat or hinge)
+          // Session = 1 squat or hinge, 1 push, 1 pull, 1 carry/brace
+          const squat = i % 2 === 0
+            ? selectExercise('squat', usedExercises)
+            : selectExercise('hinge', usedExercises);
+          const push = i % 2 === 0
+            ? selectExercise('horizontal_push', usedExercises)
+            : selectExercise('vertical_push', usedExercises);
+          const pull = i % 2 === 0
+            ? selectExercise('horizontal_pull', usedExercises)
+            : selectExercise('vertical_pull', usedExercises);
+          const core = selectExercise('carry_core', usedExercises);
+
+          if (squat) {
+            program_exercises.push({
+              day,
+              name: squat.name,
+              sets: params.sets,
+              reps: scheme.reps,
+              target_rir: params.rir,
+              rest_seconds: scheme.rest,
+              notes: `${scheme.feel} day — ${goal} focus`,
+            });
+            usedExercises.push(squat.name);
+          }
+
+          if (push) {
+            program_exercises.push({
+              day,
+              name: push.name,
+              sets: params.sets,
+              reps: scheme.reps,
+              target_rir: params.rir,
+              rest_seconds: scheme.rest,
+              notes: '',
+            });
+            usedExercises.push(push.name);
+          }
+
+          if (pull) {
+            program_exercises.push({
+              day,
+              name: pull.name,
+              sets: params.sets,
+              reps: scheme.reps,
+              target_rir: params.rir,
+              rest_seconds: scheme.rest,
+              notes: '',
+            });
+            usedExercises.push(pull.name);
+          }
+
+          if (core) {
+            program_exercises.push({
+              day,
+              name: core.name,
+              sets: 3,
+              reps: core.name.includes('Plank') || core.name.includes('Bug') ? '30-45s' : '40m',
+              target_rir: params.rir,
+              rest_seconds: 60,
+              notes: '',
+            });
+            usedExercises.push(core.name);
+          }
+        }
+      } else if (split_type === 'upper_lower' || split_type === 'upper_lower_conditioning') {
+        // Upper/Lower split: alternate upper and lower days
+        for (let i = 0; i < Math.min(days_per_week, 4); i++) {
+          const day = i + 1;
+          const isUpper = i % 2 === 0;
+
+          if (isUpper) {
+            // Upper day: push + pull (PROGRAMMING-PRINCIPLES §2: balance)
+            const hpush = selectExercise('horizontal_push', usedExercises);
+            const hpull = selectExercise('horizontal_pull', usedExercises);
+            const vpush = selectExercise('vertical_push', usedExercises);
+            const vpull = selectExercise('vertical_pull', usedExercises);
+
+            [hpush, hpull, vpush, vpull].forEach(ex => {
+              if (ex) {
+                program_exercises.push({
+                  day,
+                  name: ex.name,
+                  sets: params.sets,
+                  reps: params.reps,
+                  target_rir: params.rir,
+                  rest_seconds: params.rest,
+                  notes: 'Upper day',
+                });
+                usedExercises.push(ex.name);
+              }
+            });
+          } else {
+            // Lower day: squat + hinge + core
+            const squat = selectExercise('squat', usedExercises);
+            const hinge = selectExercise('hinge', usedExercises);
+            const core = selectExercise('carry_core', usedExercises);
+
+            [squat, hinge, core].forEach(ex => {
+              if (ex) {
+                program_exercises.push({
+                  day,
+                  name: ex.name,
+                  sets: params.sets,
+                  reps: ex === core && (ex.name.includes('Plank') || ex.name.includes('Carry'))
+                    ? '30-45s'
+                    : params.reps,
+                  target_rir: params.rir,
+                  rest_seconds: params.rest,
+                  notes: 'Lower day',
+                });
+                usedExercises.push(ex.name);
+              }
+            });
+          }
+        }
+      }
+
+      // PROGRAMMING-PRINCIPLES §2: Balance check
+      const pushSets = program_exercises
+        .filter(e => {
+          const ex = allExercises.find(x => x.name === e.name);
+          return ex && (ex.pattern === 'horizontal_push' || ex.pattern === 'vertical_push');
+        })
+        .reduce((sum, e) => sum + e.sets, 0);
+
+      const pullSets = program_exercises
+        .filter(e => {
+          const ex = allExercises.find(x => x.name === e.name);
+          return ex && (ex.pattern === 'horizontal_pull' || ex.pattern === 'vertical_pull');
+        })
+        .reduce((sum, e) => sum + e.sets, 0);
+
+      const balanceWarning = pullSets < pushSets
+        ? `⚠️ Pull volume (${pullSets} sets) is below push volume (${pushSets} sets). Consider adding rows or face pulls for shoulder health.`
+        : null;
+
+      // Assemble the program
+      const program = {
+        name,
+        category,
+        difficulty: experience_level,
+        duration_weeks: 6,  // PROGRAMMING-PRINCIPLES §4: time-box at 6 weeks
+        days_per_week,
+        mesocycle_phase: goal === 'strength' ? 'strength' : goal === 'hypertrophy' ? 'hypertrophy' : 'general',
+        description: `Generated ${goal} program for ${experience_level} — ${days_per_week} days/week. ${split_type === 'full_body' ? 'Full-body rotation with varied rep schemes.' : 'Upper/lower split.'} Progression: ${params.progression}. Time-boxed at 6 weeks per PROGRAMMING-PRINCIPLES.`,
+        exercises: program_exercises,
+        metadata: {
+          generated: true,
+          goal,
+          equipment_available,
+          constraints,
+          balance_check: { push_sets: pushSets, pull_sets: pullSets, warning: balanceWarning },
+          progression_mechanism: params.progression,
+        },
+      };
+
+      return { program, balance_warning: balanceWarning };
+    }
+
     /* ---- Web Push (subscriptions; VAPID) ---- */
     case 'webPush': {
       if (!user) return { success: false, error: 'Not logged in' };
@@ -1299,12 +1536,12 @@ const COACHING_EXERCISES = [
     regression: 'Push-up', progression: 'Load step — add a small increment once you hit the top of the rep range at your prescribed rest',
     leverage_knob: 'Slow the lowering to a 3-count and pause on the chest',
     cues: ['Tuck the elbows about 45 degrees with the wrists stacked over them', 'Keep the natural lower-back arch and pin the shoulder blades down and back', 'Stop the set when bar speed stalls or form breaks — leave 1-2 reps in the tank'] },
-  { name: 'Dumbbell Bench Press', pattern: 'horizontal_push', equipment: 'dumbbells',
+  { name: 'Dumbbell Bench Press', pattern: 'horizontal_push', equipment: 'dumbbell', equipment_detail: 'dumbbells',
     primary_muscles: ['chest', 'front deltoid', 'triceps'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
     regression: 'Floor press', progression: 'Add reps into the 8-12 range, then step the dumbbells up',
     leverage_knob: 'Add a one-second pause at the bottom of each rep',
     cues: ['Elbows tucked, forearms vertical at the bottom', 'Squeeze the chest for one second at the top', 'Lower only as deep as you can without the shoulders rolling forward'] },
-  { name: 'Incline Dumbbell Press', pattern: 'horizontal_push', equipment: 'dumbbells, bench',
+  { name: 'Incline Dumbbell Press', pattern: 'horizontal_push', equipment: 'dumbbell', equipment_detail: 'dumbbells, bench',
     primary_muscles: ['upper chest', 'front deltoid', 'triceps'], joint_tags: ['shoulder'], unilateral: false,
     regression: 'Incline push-up', progression: 'Total-rep target at a fixed load, then raise the load',
     leverage_knob: 'Turn the palms to face each other to spare the shoulder',
@@ -1319,7 +1556,7 @@ const COACHING_EXERCISES = [
     regression: 'Lighten the stack and slow the tempo', progression: 'Load step on the stack',
     leverage_knob: 'Pause at full stretch before pressing',
     cues: ['Set the seat so the handles line up with mid-chest', 'Press smoothly without locking out hard', 'Let the handles come back only as far as the shoulders stay comfortable'] },
-  { name: 'Dip', pattern: 'horizontal_push', equipment: 'dip bars, bodyweight',
+  { name: 'Dip', pattern: 'horizontal_push', equipment: 'bodyweight', equipment_detail: 'dip bars, bodyweight',
     primary_muscles: ['lower chest', 'triceps', 'front deltoid'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
     regression: 'Bench dip or band-assisted dip', progression: 'Add reps, then hang a little weight from a belt',
     leverage_knob: 'Lean the torso forward to bias the chest',
@@ -1331,12 +1568,12 @@ const COACHING_EXERCISES = [
     regression: 'Seated dumbbell shoulder press', progression: 'Load step; add a work-up single slightly above the top set',
     leverage_knob: 'Press strictly with no leg drive and pause at the forehead',
     cues: ['Brace the abs and squeeze the glutes so the ribs stay down', 'Press in a straight line and finish with the bar stacked over the mid-foot', 'Stop the set if the lower back arches to move the weight'] },
-  { name: 'Seated Dumbbell Shoulder Press', pattern: 'vertical_push', equipment: 'dumbbells',
+  { name: 'Seated Dumbbell Shoulder Press', pattern: 'vertical_push', equipment: 'dumbbell', equipment_detail: 'dumbbells',
     primary_muscles: ['shoulders', 'triceps'], joint_tags: ['shoulder'], unilateral: false,
     regression: 'Landmine press', progression: 'Total-rep target, then raise the load',
     leverage_knob: 'Use a neutral (palms-in) grip to spare the shoulder',
     cues: ['Sit tall with the lower back supported and ribs down', 'Press up and slightly in without banging the dumbbells', 'Lower only to ear height, then stop if the shoulder pinches'] },
-  { name: 'Landmine Press', pattern: 'vertical_push', equipment: 'barbell, landmine',
+  { name: 'Landmine Press', pattern: 'vertical_push', equipment: 'barbell', equipment_detail: 'barbell, landmine',
     primary_muscles: ['shoulders', 'upper chest', 'triceps'], joint_tags: [], unilateral: true,
     regression: 'Half-kneeling landmine press', progression: 'Load step, then progress toward a standing strict press',
     leverage_knob: 'Press from a half-kneeling stance to remove the leg drive',
@@ -1358,39 +1595,39 @@ const COACHING_EXERCISES = [
     regression: 'Chest-supported dumbbell row', progression: 'Load step while keeping the torso angle fixed',
     leverage_knob: 'Pause the bar at the ribs for a one-count each rep',
     cues: ['Keep the natural lower-back arch — never round the spine to lift', 'Pull the bar to the lower ribs and squeeze the shoulder blades together', 'Stop the set the moment the back rounds or the torso starts swinging'] },
-  { name: 'One-Arm Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbell, bench',
+  { name: 'One-Arm Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbell', equipment_detail: 'dumbbell, bench',
     primary_muscles: ['lats', 'mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: true,
     regression: 'Chest-supported dumbbell row', progression: 'Total-rep target per side, then raise the load',
     leverage_knob: 'Pause at the top and lower on a 3-count',
     cues: ['Brace the free hand and keep the spine long and neutral', 'Drive the elbow back toward the hip, squeezing the shoulder blade', 'Keep the hips and shoulders square — stop if the torso rotates to finish a rep'] },
-  { name: 'Chest-Supported Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbells, incline bench',
+  { name: 'Chest-Supported Dumbbell Row', pattern: 'horizontal_pull', equipment: 'dumbbell', equipment_detail: 'dumbbells, incline bench',
     primary_muscles: ['mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: false,
     regression: 'Seated cable row', progression: 'Volume ramp — add a set every 1-2 weeks',
     leverage_knob: 'Pause and squeeze at the top of every rep',
     cues: ['Let the bench take the spine so the lower back is out of it', 'Row both dumbbells to the ribs and pinch the shoulder blades', 'Lower fully but stop the set when you can no longer pause at the top'] },
-  { name: 'Inverted Row', pattern: 'horizontal_pull', equipment: 'bodyweight, bar or suspension trainer',
+  { name: 'Inverted Row', pattern: 'horizontal_pull', equipment: 'bodyweight', equipment_detail: 'bodyweight, bar or suspension trainer',
     primary_muscles: ['mid-back', 'rear deltoid', 'biceps'], joint_tags: [], unilateral: false,
     regression: 'Raise the bar higher or bend the knees', progression: 'Lower the bar or elevate the feet to steepen the angle',
     leverage_knob: 'Elevate the feet and lengthen the body angle',
     cues: ['Brace the abs and squeeze the glutes so the body stays a straight line', 'Pull the chest to the bar and squeeze the shoulder blades', 'Stop when the hips drop or you can no longer reach the bar with control'] },
-  { name: 'Seated Cable Row', pattern: 'horizontal_pull', equipment: 'cable machine',
+  { name: 'Seated Cable Row', pattern: 'horizontal_pull', equipment: 'cable', equipment_detail: 'cable machine',
     primary_muscles: ['mid-back', 'lats', 'biceps'], joint_tags: [], unilateral: false,
     regression: 'Band row', progression: 'Load step on the stack',
     leverage_knob: 'Pause for a one-count with the handle at the stomach',
     cues: ['Sit tall and keep the chest up without leaning back hard', 'Pull to the stomach and drive the elbows past the ribs', 'Let the weight stretch you forward only as far as the back stays flat'] },
-  { name: 'Face Pull', pattern: 'horizontal_pull', equipment: 'cable, band',
+  { name: 'Face Pull', pattern: 'horizontal_pull', equipment: 'band', equipment_detail: 'cable, band',
     primary_muscles: ['rear deltoid', 'mid-back', 'rotator cuff'], joint_tags: [], unilateral: false,
     regression: 'Band pull-apart', progression: 'Add reps into the 15-20 range, then a small load step',
     leverage_knob: 'Pause with the hands beside the ears',
     cues: ['Pull the rope toward the eyes, splitting the hands apart', 'Lead with the elbows high and squeeze the rear shoulders', 'Keep it light and stop short of any shoulder pinch — this is protective volume'] },
 
   /* ---- Vertical pull (lats, biceps, forearms) ---- */
-  { name: 'Pull-Up', pattern: 'vertical_pull', equipment: 'pull-up bar, bodyweight',
+  { name: 'Pull-Up', pattern: 'vertical_pull', equipment: 'bodyweight', equipment_detail: 'pull-up bar, bodyweight',
     primary_muscles: ['lats', 'biceps', 'forearms'], joint_tags: ['shoulder', 'elbow'], unilateral: false,
     regression: 'Band-assisted pull-up or lat pulldown', progression: 'Add reps, then hang a little weight from a belt',
     leverage_knob: 'Pause at the top and lower on a 3-count',
     cues: ['Start from a full hang and pull the chest toward the bar', 'Drive the elbows down and squeeze the lats — do not just bend the arms', 'Stop the set when you can no longer clear the bar with control'] },
-  { name: 'Chin-Up', pattern: 'vertical_pull', equipment: 'pull-up bar, bodyweight',
+  { name: 'Chin-Up', pattern: 'vertical_pull', equipment: 'bodyweight', equipment_detail: 'pull-up bar, bodyweight',
     primary_muscles: ['lats', 'biceps', 'forearms'], joint_tags: ['elbow', 'shoulder'], unilateral: false,
     regression: 'Band-assisted chin-up', progression: 'Add reps, then add weight from a belt',
     leverage_knob: 'Pause at the top for a one-count',
@@ -1422,12 +1659,12 @@ const COACHING_EXERCISES = [
     regression: 'Goblet squat', progression: 'Load step while keeping the torso upright',
     leverage_knob: 'Pause at the bottom before driving up',
     cues: ['Keep the elbows high so the bar stays on the shoulders', 'Stay tall through the chest and brace hard', 'Sink only as low as the torso stays upright, then drive the floor away'] },
-  { name: 'Goblet Squat', pattern: 'squat', equipment: 'kettlebell or dumbbell',
+  { name: 'Goblet Squat', pattern: 'squat', equipment: 'dumbbell', equipment_detail: 'kettlebell or dumbbell',
     primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: false,
     regression: 'Box squat to a target', progression: 'Load step, then graduate to a barbell squat',
     leverage_knob: 'Pause at the bottom and pry the knees out',
     cues: ['Hold the weight at the chest and keep the elbows inside the knees', 'Sit down between the hips with the chest up', 'Go as deep as you can hold the arch, then stand — stop if the low back rounds'] },
-  { name: 'Bulgarian Split Squat', pattern: 'squat', equipment: 'dumbbells, bench',
+  { name: 'Bulgarian Split Squat', pattern: 'squat', equipment: 'dumbbell', equipment_detail: 'dumbbells, bench',
     primary_muscles: ['quads', 'glutes'], joint_tags: ['knee'], unilateral: true,
     regression: 'Bodyweight split squat', progression: 'Load step per leg, then a slow-tempo variation',
     leverage_knob: 'Slow the descent to a 3-count and pause at the bottom',
@@ -1442,7 +1679,7 @@ const COACHING_EXERCISES = [
     regression: 'Lighten the load and shorten the range', progression: 'Load step on the sled',
     leverage_knob: 'Pause at the bottom of each rep',
     cues: ['Set the feet mid-platform and keep the whole back on the pad', 'Push through the mid-foot and avoid locking the knees hard', 'Lower only until the lower back starts to round off the pad — stop there'] },
-  { name: 'Reverse Lunge', pattern: 'squat', equipment: 'bodyweight or dumbbells',
+  { name: 'Reverse Lunge', pattern: 'squat', equipment: 'bodyweight', equipment_detail: 'bodyweight or dumbbells',
     primary_muscles: ['quads', 'glutes', 'hamstrings'], joint_tags: ['knee'], unilateral: true,
     regression: 'Bodyweight reverse lunge to a short range', progression: 'Add load, then progress to a deficit or slow tempo',
     leverage_knob: 'Slow the lowering and pause at the bottom',
@@ -1454,7 +1691,7 @@ const COACHING_EXERCISES = [
     regression: 'Romanian deadlift or kettlebell deadlift', progression: 'Load step; back off one set before a heavy top set',
     leverage_knob: 'Pause the bar just below the knee on the way up',
     cues: ['Set the natural lower-back arch and brace before the bar leaves the floor', 'Drive the feet into the floor and push the hips through — do not yank with the back', 'Stop the set the instant the lower back rounds'] },
-  { name: 'Romanian Deadlift', pattern: 'hinge', equipment: 'barbell or dumbbells',
+  { name: 'Romanian Deadlift', pattern: 'hinge', equipment: 'dumbbell', equipment_detail: 'barbell or dumbbells',
     primary_muscles: ['hamstrings', 'glutes', 'back'], joint_tags: ['lower back'], unilateral: false,
     regression: 'Kettlebell deadlift', progression: 'Load step while keeping the bar path against the legs',
     leverage_knob: 'Slow the lowering to a 3-count',
@@ -1464,7 +1701,7 @@ const COACHING_EXERCISES = [
     regression: 'Kettlebell deadlift to groove the hinge', progression: 'Load step, then density (more quality swings in a fixed window)',
     leverage_knob: 'Add a crisp float-and-hike each rep',
     cues: ['Hinge at the hips, not a squat — the bell floats from hip snap', 'Snap the hips forward and squeeze the glutes at the top', 'Keep the spine neutral and stop the set when the hinge gets sloppy'] },
-  { name: 'Barbell Hip Thrust', pattern: 'hinge', equipment: 'barbell, bench',
+  { name: 'Barbell Hip Thrust', pattern: 'hinge', equipment: 'barbell', equipment_detail: 'barbell, bench',
     primary_muscles: ['glutes', 'hamstrings'], joint_tags: [], unilateral: false,
     regression: 'Bodyweight glute bridge', progression: 'Load step; add a paused rep at the top',
     leverage_knob: 'Pause and squeeze for two seconds at the top',
@@ -1481,12 +1718,12 @@ const COACHING_EXERCISES = [
     cues: ['Squeeze the glutes to lift and keep the ribs down — do not arch the low back', 'Drive through the heels', 'Stop short of any lower-back pinch; finish with the hips level with the knees'] },
 
   /* ---- Carry / core-brace (trunk, grip, whole body) ---- */
-  { name: 'Farmer Carry', pattern: 'carry_core', equipment: 'dumbbells or kettlebells',
+  { name: 'Farmer Carry', pattern: 'carry_core', equipment: 'dumbbell', equipment_detail: 'dumbbells or kettlebells',
     primary_muscles: ['trunk', 'grip', 'traps', 'whole body'], joint_tags: [], unilateral: false,
     regression: 'Shorter distance with a lighter load', progression: 'Add load or distance each week',
     leverage_knob: 'Slow the pace and lengthen the distance',
     cues: ['Stand tall with the ribs down and the abs braced', 'Keep the shoulders square and level — do not lean', 'Stop the set when posture breaks or the grip starts to fail'] },
-  { name: 'Suitcase Carry', pattern: 'carry_core', equipment: 'dumbbell or kettlebell',
+  { name: 'Suitcase Carry', pattern: 'carry_core', equipment: 'dumbbell', equipment_detail: 'dumbbell or kettlebell',
     primary_muscles: ['obliques', 'trunk', 'grip'], joint_tags: [], unilateral: true,
     regression: 'Shorter distance with a lighter load', progression: 'Add load or distance per side',
     leverage_knob: 'Slow the pace to resist the lean longer',
@@ -1506,7 +1743,7 @@ const COACHING_EXERCISES = [
     regression: 'Side plank from the knee', progression: 'Extend the hold, then add a top-leg raise',
     leverage_knob: 'Stack the feet or add a top-leg raise',
     cues: ['Stack the shoulder over the elbow and brace the side of the trunk', 'Lift the hips so the body is one straight line', 'End the hold when the hips start to sag toward the floor'] },
-  { name: 'Pallof Press', pattern: 'carry_core', equipment: 'cable or band',
+  { name: 'Pallof Press', pattern: 'carry_core', equipment: 'band', equipment_detail: 'cable or band',
     primary_muscles: ['obliques', 'trunk'], joint_tags: [], unilateral: false,
     regression: 'Step closer to the anchor to reduce the pull', progression: 'Add tension, then a longer hold at full reach',
     leverage_knob: 'Hold at full extension for a longer count',
